@@ -1,0 +1,23 @@
+[package]
+name = "bempic-sim"
+description = "Deterministic constrained carrier and interrupted BEMPIC transfer simulator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bempic-carrier.workspace = true
+bempic-model.workspace = true
+bempic-store.workspace = true
+bempic-sync.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
+

@@ -1,0 +1,21 @@
+[package]
+name = "bempic-cli"
+description = "BEMPIC reference demonstration and inspection commands"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bempic-codec.workspace = true
+bempic-model.workspace = true
+bempic-sim.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
+

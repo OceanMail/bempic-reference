@@ -1,0 +1,20 @@
+{
+  "codec": "experimental-message-v0",
+  "encoded_hex": "424d534730d11df30557dde26c457140e35754b280000000006a946fa0001273686f7265406578616d706c652e7465737401001376657373656c406578616d706c652e746573740007576561746865720000001457696e64203132206b7420e2809420636166c3a900",
+  "encoded_size": 105,
+  "logical_id_hex": "d11df30557dde26c457140e35754b280",
+  "message": {
+    "attachments": [],
+    "body": "Wind 12 kt — café",
+    "created_at": 1788112800,
+    "recipients": ["vessel@example.test"],
+    "sender": "shore@example.test",
+    "subject": "Weather"
+  },
+  "normative": false,
+  "representation_id_hex": "f1a78ed3691014a9a0fbd54521e2b3a4",
+  "schema": "bempic-experimental-cross-language-v0",
+  "schema_fingerprint_hex": "4365d2fe933c0cf5924a43f690ad88e8",
+  "sha256_hex": "f1a78ed3691014a9a0fbd54521e2b3a4e2f2008e93f8475092c1c0fdc054bd8e"
+}
+

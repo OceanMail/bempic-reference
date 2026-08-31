@@ -1,32 +1,60 @@
-# BEMPIC Reference Implementation
+# BEMPIC Reference v0.1.0
 
-This repository is reserved for the open BEMPIC reference implementation, interoperability fixtures, test vectors, and conformance tooling.
+BEMPIC is an experimental, deterministic application-synchronization layer for
+messaging over severely constrained and intermittently connected carriers.
+This repository contains the Apache-2.0 reference implementation, simulator,
+fixtures, and cross-language vectors.
 
-## Status
+> **No stable wire format:** every encoding in v0.1.0 is an experimental
+> measurement candidate. The markers, field widths, hashes, record kinds, and
+> schema fingerprints may change incompatibly before a wire generation is
+> selected by the specification project.
 
-**Pre-implementation.** No wire format has been frozen and production code should not begin until the protocol repository establishes enough normative behavior to test.
-
-## Purpose
-
-The reference implementation exists to prove that the public BEMPIC specification is independently implementable. It must not depend on proprietary OceanMail services or source code.
-
-Planned contents:
+## Architectural boundary
 
 ```text
-/reference-client
-/reference-server
-/test-vectors
-/conformance
-/simulator
-/examples
+OceanMail       application normalization, policy, UI, service integration
+    ↓
+BEMPIC          compact representations, sync, budgets, resume, receipts
+    ↓
+M4P             routing, store-carry-forward, TTL, generic fragmentation
+    ↓
+DataLink        link/modem reliability, FEC, ARQ, physical-byte accounting
 ```
 
-The simulator should be developed early so protocol choices can be compared using real byte counts, latency, interruption, corruption/loss, and resume behavior.
+BEMPIC does not implement radios, modem protocols, M4P, Mailcow, billing,
+production authentication, or production cryptography. Its v0.1.0 SHA-256
+digests provide deterministic identity and corruption detection only.
 
-## Licensing
+## Workspace
 
-The intended direction is a permissive open-source license suitable for broad independent and commercial implementation, but no license is adopted until an explicit LICENSE file is committed.
+- `bempic-model`: bounded messages, parts, identifiers, prepared bytes.
+- `bempic-codec`: pluggable experimental codecs, fingerprints, exact bounds.
+- `bempic-sync`: offers, requests, data operations, receipts, accounting.
+- `bempic-store`: crash-conscious file persistence and exact reconstruction.
+- `bempic-carrier`: minimal opaque-record carrier contract.
+- `bempic-sim`: deterministic budgets, bandwidth, latency, disconnects, time.
+- `bempic-cli`: inspect, demo, interrupt/reopen/resume, and vector commands.
+- `bempic-bench`: deterministic fixture and carrier measurements.
+- `prototype`: the original standard-library Python behavioral oracle.
 
-## Source of truth
+## Run
 
-Protocol semantics belong in the `Gordonfive/bempic` specification repository. This repository implements and tests them; it does not define proprietary extensions by accident.
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
+cargo run -p bempic-cli -- demo
+cargo run -p bempic-bench --release
+python -m unittest prototype.tests.test_proof -v
+python -m prototype.demo
+python -m prototype.benchmark
+```
+
+The committed files under `test-vectors/experimental-v0/` are differential
+vectors shared by Rust and Python. They are experimental fixtures, not a
+compatibility promise.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
