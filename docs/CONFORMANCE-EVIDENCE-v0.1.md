@@ -68,7 +68,7 @@ Status meanings:
 |---|---|---|
 | PERSIST-01 | pass | Offer-page cursor commit and duplicate replay survive reopen. |
 | PERSIST-02 | pass | Prefix-length updates reopen at exact recoverable bytes. |
-| PERSIST-03 | pass | Fully durable final suffix is verified/committed before payload-capacity calculation. |
+| PERSIST-03 | pass | Fully durable final suffix is verified/committed before payload-capacity calculation; Unix parent entries are synchronized before durable boundaries. |
 | PERSIST-04 | pass | Verified staging state reopens and commits without payload. |
 | PERSIST-05 | pass | Committed state reopens before receipt without false or lost commit. |
 | PERSIST-06 | pass | Required receiver percentages and final byte are deterministic tests. |
@@ -97,7 +97,7 @@ Status meanings:
 | REF-04 | pass | RFC 8785 fingerprints, full IDs, content digest, preparation, validation, and opaque reconstruction pass. |
 | REF-05 | pass | Append checkpoints, delta/full reconciliation, and durable cursors pass. |
 | REF-06 | pass | Hard total/directional budgets, exact preflight, and accounting are one integrated v0.1 path. |
-| REF-07 | pass | Full-width crash/reopen, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
+| REF-07 | pass | Full-width crash/reopen, shared directory-entry durability, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
 | REF-08 | partial | Negotiation core works; every incompatibility/stale-cache trace is not bundled. |
 | REF-09 | blocked | Exact experimental maxima are proven, but no approved codec registry allocation or profile exists. |
 | REF-10 | pass | Tool/version/duration/corpus digest and zero findings are published in `conformance/fuzz-report.json`. |

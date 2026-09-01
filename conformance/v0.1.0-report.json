@@ -86,7 +86,7 @@
 
     {"id": "PERSIST-01", "status": "pass", "requirement": "Interrupt before/after offer page commit.", "evidence": ["durable cursor reopen and duplicate-page test"], "gap": null},
     {"id": "PERSIST-02", "status": "pass", "requirement": "Interrupt before/after prefix-length update.", "evidence": ["prefix percentage matrix"], "gap": null},
-    {"id": "PERSIST-03", "status": "pass", "requirement": "Interrupt after final byte before commit.", "evidence": ["final_suffix_interruption_reopens_commits_and_receipts"], "gap": null},
+    {"id": "PERSIST-03", "status": "pass", "requirement": "Interrupt after final byte before commit.", "evidence": ["final_suffix_interruption_reopens_commits_and_receipts", "Unix parent-directory synchronization before durable boundaries"], "gap": null},
     {"id": "PERSIST-04", "status": "pass", "requirement": "Interrupt post-verification/pre-commit.", "evidence": ["post_verification_pre_commit_reopens_and_commits_without_payload"], "gap": null},
     {"id": "PERSIST-05", "status": "pass", "requirement": "Interrupt post-commit/pre-receipt.", "evidence": ["post_commit_pre_receipt_reopens_without_false_or_lost_commit"], "gap": null},
     {"id": "PERSIST-06", "status": "pass", "requirement": "Test 0%, 1%, 10%, 50%, 90%, and final byte.", "evidence": ["required_prefix_interruption_matrix", "final suffix test"], "gap": null},
@@ -107,7 +107,7 @@
     {"id": "REF-04", "status": "pass", "requirement": "Preparation, full fingerprints, SHA-256 IDs, validation, exact reconstruction.", "evidence": ["PreparedRepresentation v01", "independent verifier"], "gap": null},
     {"id": "REF-05", "status": "pass", "requirement": "Checkpoints, delta, bounded full fallback, durable cursors.", "evidence": ["reconcile", "ProtocolStore"], "gap": null},
     {"id": "REF-06", "status": "pass", "requirement": "Hard total/directional budgets, exact preflight, accounting counters.", "evidence": ["BudgetScope", "bempic_sim::v01 integrated exact preflight/accounting", "tranche-2 artifact"], "gap": null},
-    {"id": "REF-07", "status": "pass", "requirement": "Crash persistence, reopen, source change, corruption retry, idempotency.", "evidence": ["RepresentationStore nine-boundary matrix", "all endpoint restart modes", "corruption quarantine/retry", "duplicate replay accounting"], "gap": null},
+    {"id": "REF-07", "status": "pass", "requirement": "Crash persistence, reopen, source change, corruption retry, idempotency.", "evidence": ["RepresentationStore nine-boundary matrix", "shared directory-entry durability primitive", "all endpoint restart modes", "corruption quarantine/retry", "duplicate replay accounting"], "gap": null},
     {"id": "REF-08", "status": "partial", "requirement": "Capability/version/schema/codec/extension negotiation and all incompatibilities.", "evidence": ["negotiate and extension tests"], "gap": "Every fail-closed incompatibility/stale-cache trace is not bundled."},
     {"id": "REF-09", "status": "blocked", "requirement": "One labeled deterministic codec with registered ID, bounds, maxima, canonical parameters, exact analysis.", "evidence": ["experimental codec implementation", "exact maxima and witnesses"], "gap": "No codec registry allocation or approved codec profile."},
     {"id": "REF-10", "status": "pass", "requirement": "Malformed fuzz/property tests with published tools/findings.", "evidence": ["conformance/fuzz-report.json", "50,000 random + 187 structured + 4,100 property cases; zero findings"], "gap": null},

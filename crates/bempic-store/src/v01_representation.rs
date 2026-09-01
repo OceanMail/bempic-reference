@@ -122,7 +122,7 @@ impl RepresentationStore {
         descriptor
             .validate()
             .map_err(|_| RepresentationStoreError::InvalidDescriptor)?;
-        fs::create_dir_all(root.as_ref())?;
+        crate::durable::create_dir_all(root.as_ref())?;
         let stem = descriptor.representation_id.to_string();
         let slots = [
             root.as_ref().join(format!("{stem}.v01-state.0.json")),
@@ -254,12 +254,16 @@ impl RepresentationStore {
             });
         }
         let suffix = &payload[overlap..];
+        let part_existed = self.part_path.exists();
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.part_path)?;
         file.write_all(suffix)?;
         file.sync_all()?;
+        if !part_existed {
+            crate::durable::sync_parent_directory(&self.part_path)?;
+        }
         self.trip(DurableBoundary::PrefixBytes)?;
 
         let accepted_octets =
@@ -335,7 +339,7 @@ impl RepresentationStore {
             let file = File::create(&self.part_path)?;
             file.sync_all()?;
         }
-        replace_file(&self.part_path, &self.complete_path)?;
+        crate::durable::replace_file(&self.part_path, &self.complete_path)?;
         self.trip(DurableBoundary::CommitBytes)?;
         self.state.status = DurableStatus::Committed;
         self.state.durable_prefix_octets = self.state.descriptor.encoded_length;
@@ -430,7 +434,7 @@ impl RepresentationStore {
     fn quarantine(&mut self) -> Result<(), RepresentationStoreError> {
         if self.part_path.exists() {
             let destination = self.next_quarantine();
-            fs::rename(&self.part_path, destination)?;
+            crate::durable::replace_file(&self.part_path, &destination)?;
             self.trip(DurableBoundary::QuarantineBytes)?;
         }
         self.state.status = DurableStatus::Offered;
@@ -485,7 +489,7 @@ impl RepresentationStore {
             file.write_all(&bytes)?;
             file.sync_all()?;
         }
-        replace_file(&temporary, &self.slots[index])?;
+        crate::durable::replace_file(&temporary, &self.slots[index])?;
         self.state = next;
         Ok(())
     }
@@ -498,19 +502,6 @@ impl RepresentationStore {
             Ok(())
         }
     }
-}
-
-#[cfg(windows)]
-fn replace_file(source: &Path, destination: &Path) -> std::io::Result<()> {
-    if destination.exists() {
-        fs::remove_file(destination)?;
-    }
-    fs::rename(source, destination)
-}
-
-#[cfg(not(windows))]
-fn replace_file(source: &Path, destination: &Path) -> std::io::Result<()> {
-    fs::rename(source, destination)
 }
 
 /// Full-width representation persistence failure.
