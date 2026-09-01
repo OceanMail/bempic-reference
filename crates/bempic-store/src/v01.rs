@@ -1,5 +1,13 @@
 //! Generation-0.1 protocol persistence separate from representation byte files.
 
+#[path = "v01_representation.rs"]
+mod representation;
+
+pub use representation::{
+    AcceptOutcome, DurableBoundary, RepresentationSnapshot, RepresentationStore,
+    RepresentationStoreError,
+};
+
 use bempic_sync::v01::{
     collection_checkpoint, CollectionEntry, Cursor, NegotiatedProfile, Offer, OfferMode, Summary,
 };

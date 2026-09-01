@@ -159,6 +159,23 @@ def verify() -> dict[str, Any]:
         if hashlib.sha256(raw).hexdigest() != file_entry["sha256"]:
             raise VerificationError(f"file digest mismatch: {path}")
 
+    catalog = strict_json((BUNDLE_ROOT / "catalog.json").read_text(encoding="utf-8"))
+    expected_catalog_ids = [f"V{index:02d}" for index in range(1, 16)]
+    actual_catalog_ids = [entry["id"] for entry in catalog["entries"]]
+    if actual_catalog_ids != expected_catalog_ids:
+        raise VerificationError("mandatory vector catalog IDs/order mismatch")
+    allowed_statuses = {"pass", "partial", "fail", "blocked"}
+    for entry in catalog["entries"]:
+        if entry["status"] not in allowed_statuses:
+            raise VerificationError(f"invalid catalog status: {entry['id']}")
+        if entry["status"] in {"partial", "blocked"} and not entry.get("pending"):
+            raise VerificationError(f"catalog gap lacks pending inventory: {entry['id']}")
+    if catalog["implementation_status"] != manifest["mandatory_catalog_status"]:
+        raise VerificationError("catalog and manifest completion status differ")
+    question_ids = [question["id"] for question in catalog["proposed_specification_questions"]]
+    if len(question_ids) != len(set(question_ids)) or not question_ids:
+        raise VerificationError("specification questions must be non-empty and unique")
+
     fingerprints: dict[str, str] = {}
     for descriptor in manifest["schema_descriptors"]:
         raw = (BUNDLE_ROOT / descriptor["path"]).read_bytes()
@@ -220,6 +237,9 @@ def verify() -> dict[str, Any]:
         "schema_fingerprints": fingerprints,
         "valid_vectors": 1,
         "invalid_vectors": 1,
+        "mandatory_catalog_entries": len(catalog["entries"]),
+        "mandatory_catalog_status": catalog["implementation_status"],
+        "proposed_specification_questions": len(question_ids),
         "jcs_valid_vectors": len(jcs_vectors["valid"]),
         "jcs_invalid_vectors": len(jcs_vectors["invalid"]),
     }

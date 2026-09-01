@@ -51,11 +51,13 @@ name = "bempic-conformance"
 version = "0.1.0"
 dependencies = [
  "bempic-model",
+ "bempic-sim",
  "bempic-sync",
  "hex",
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
 ]
 
 [[package]]
@@ -78,6 +80,7 @@ dependencies = [
  "bempic-store",
  "bempic-sync",
  "serde",
+ "sha2",
  "tempfile",
  "thiserror",
 ]

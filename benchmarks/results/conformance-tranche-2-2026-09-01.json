@@ -1,0 +1,60 @@
+{
+  "codec_status": "experimental-unregistered-disposable",
+  "experimental_codec_maximum_size_proofs": [
+    {"envelope_octets": 7, "kind": "CAPABILITIES", "maximum_encoded_octets": 34362, "operation_payload_octets": 1362, "record_extension_octets": 32993},
+    {"envelope_octets": 7, "kind": "SUMMARY", "maximum_encoded_octets": 33080, "operation_payload_octets": 80, "record_extension_octets": 32993},
+    {"envelope_octets": 7, "kind": "OFFER", "maximum_encoded_octets": 186789, "operation_payload_octets": 153789, "record_extension_octets": 32993},
+    {"envelope_octets": 7, "kind": "REQUEST", "maximum_encoded_octets": 39186, "operation_payload_octets": 6186, "record_extension_octets": 32993},
+    {"envelope_octets": 7, "kind": "DATA", "maximum_encoded_octets": 1048576, "operation_payload_octets": 1015576, "record_extension_octets": 32993},
+    {"envelope_octets": 7, "kind": "RECEIPT", "maximum_encoded_octets": 33341, "operation_payload_octets": 341, "record_extension_octets": 32993},
+    {"envelope_octets": 7, "kind": "FAILURE", "maximum_encoded_octets": 33326, "operation_payload_octets": 326, "record_extension_octets": 32993}
+  ],
+  "integrated_body_fixture": {
+    "bempic_octets": 3538,
+    "bempic_octets_before_first_body_payload": 747,
+    "bempic_octets_through_first_body_payload": 1259,
+    "carrier_cost_precision": "exact",
+    "carrier_octets": 3658,
+    "carrier_octets_before_first_body_payload": 787,
+    "carrier_octets_through_first_body_payload": 1307,
+    "contacts": 6,
+    "deterministic_size_checks": 15,
+    "duplicate_payload_octets": 0,
+    "elapsed_ms": 3357,
+    "exact_reconstruction": true,
+    "first_body_payload_octets": 460,
+    "link_cost_precision": "unavailable",
+    "operation_octets": {"CAPABILITIES": 204, "DATA": 2308, "OFFER": 357, "RECEIPT": 91, "REQUEST": 490, "SUMMARY": 88},
+    "predicted_bempic_octets": 3538,
+    "protocol_overhead_octets": 1490,
+    "quote_prediction_error_octets": 0,
+    "receiver_restarts": 2,
+    "receiver_to_sender_bempic_octets": 683,
+    "receiver_to_sender_carrier_octets": 739,
+    "representation_octets": 2048,
+    "representation_payload_delivered_octets": 2048,
+    "representation_payload_submitted_octets": 2048,
+    "sender_restarts": 3,
+    "sender_to_receiver_bempic_octets": 2855,
+    "sender_to_receiver_carrier_octets": 2919,
+    "useful_committed_octets": 2048
+  },
+  "no_change_transactions": {
+    "capability_operation_octets": 102,
+    "cold_gate_maximum_octets": 128,
+    "cold_gate_pass": false,
+    "cold_no_change_octets": 292,
+    "warm_gate_maximum_octets": 64,
+    "warm_gate_pass": false,
+    "warm_no_change_octets": 88
+  },
+  "restart_comparison": {
+    "full_restart": {"bempic_octets": 2990, "carrier_octets": 3094, "contacts": 2, "payload_submitted_octets": 1301, "protocol_overhead_octets": 1689},
+    "persistent_resume": {"bempic_octets": 1940, "carrier_octets": 2012, "contacts": 2, "payload_submitted_octets": 900, "protocol_overhead_octets": 1040},
+    "persistent_resume_saves_carrier_octets": 1082,
+    "persistent_resume_saves_payload_octets": 401,
+    "representation_octets": 900
+  },
+  "schema": "bempic-reference-v0.1-conformance-tranche-2-measurements",
+  "specification_commit": "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401"
+}

@@ -13,6 +13,7 @@ bempic-model.workspace = true
 bempic-store.workspace = true
 bempic-sync.workspace = true
 serde.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
@@ -20,4 +21,3 @@ tempfile.workspace = true
 
 [lints]
 workspace = true
-

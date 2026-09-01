@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "bd0b5e67c0ffed3de71d2f411b4a5024e0267b5ec1787310ec3f4293ae785aa4",
+  "bundle_digest": "2411074bd16b6c3a4073849d6ceae730f0e06e288ed58816a60b1839d6317fb0",
   "bundle_format_version": "0.1",
   "codec": {
     "canonical_parameters_hex": "",
@@ -10,6 +10,11 @@
   },
   "extensions": [],
   "files": [
+    {
+      "length": 7286,
+      "path": "catalog.json",
+      "sha256": "f189b944c98781e079295a677fc7a4a204069c230b6d6d319a75e91830f7b4cf"
+    },
     {
       "length": 2390,
       "path": "schemas/core-operations.schema.jcs",
