@@ -8,7 +8,7 @@
   "conformance_claim": false,
   "dependency_lock_sha256": "9de417f10b3cae08f18a492ba049b87e5f96b1a7b587e2c43919b77f5ff740ba",
   "implementation": {
-    "commit": "PENDING_IMPLEMENTATION_COMMIT",
+    "commit": "30696c17c9d63c54ce56a0eb4574bcee4e34d682",
     "name": "bempic-reference",
     "version": "0.1.0-candidate"
   },
@@ -114,7 +114,7 @@
     {"id": "REF-14", "status": "blocked", "requirement": "Raw, MIME, B2F/LZHUF, codec, interruption, persistence measurements.", "evidence": ["conformance measurement artifact"], "gap": "Legal B2F oracle and full-restart comparison unresolved."},
     {"id": "REF-15", "status": "pass", "requirement": "Zero deferred payload, budgets, durable prefix, exact quote demonstrations.", "evidence": ["tests/demos/benchmarks"], "gap": null},
     {"id": "REF-16", "status": "pass", "requirement": "Opaque carrier trait and mock M4P binding without network duplication.", "evidence": ["MockM4pBinding test"], "gap": null},
-    {"id": "REF-17", "status": "blocked", "requirement": "Immutable passing commit SHA and green CI URL in specification release PR.", "evidence": [], "gap": "Requires final reference commit, green CI, and specification-repository coordination."},
+    {"id": "REF-17", "status": "blocked", "requirement": "Immutable passing commit SHA and green CI URL in specification release PR.", "evidence": ["reference commit 30696c17c9d63c54ce56a0eb4574bcee4e34d682", "push run 33456973653 success", "pull-request run 33456976303 success"], "gap": "The reference evidence exists, but immutable acceptance in the specification repository release PR requires external maintainer coordination."},
 
     {"id": "ACCEPT-01", "status": "fail", "requirement": "All CONFORMANCE correctness items pass.", "evidence": ["this report"], "gap": "Multiple semantic/codec/persistence/accounting items are partial, failed, or blocked."},
     {"id": "ACCEPT-02", "status": "fail", "requirement": "Warm no-change <=64 B and cold no-change <=128 B.", "evidence": ["88 B warm; 292 B cold"], "gap": "Experimental codec exceeds both thresholds."},
@@ -146,7 +146,7 @@
     "Complete sender/receiver/both restart and storage-failure injection matrices are absent.",
     "Full v0.1 descriptor/decode/commit/accounting path is not integrated with the carrier simulator.",
     "External M4P maintainer binding review is pending.",
-    "Final immutable implementation commit and green CI evidence are pending."
+    "The passing immutable reference commit has not yet been accepted into the specification repository release record."
   ],
   "unsupported_optional_behavior": [
     "authenticated-public security profile",
