@@ -26,10 +26,24 @@ other candidates without changing the application model or sync engine.
 DCCL is prior art for those design properties only. This project has no DCCL
 dependency and does not use or claim compatibility with the DCCL wire format.
 
+## Contact negotiation and resume
+
+Capability exchange records a durable maximum complete-record size before the
+corresponding phase is marked complete. Every later contact applies the minimum
+of that negotiated ceiling, the current carrier ceiling, and the experimental
+operation envelope. A larger later carrier therefore cannot silently enlarge
+records previously bounded for the peer. v0.1.0 supports only monotonic
+narrowing; increasing the negotiated ceiling requires a future explicit
+renegotiation mechanism or a fresh synchronization state.
+
+After reopening, a durable prefix whose length equals the representation size
+is verified and committed before data payload capacity is calculated. This
+covers an interruption after the final suffix was persisted but before commit,
+including an empty representation for which no part file has yet been created.
+
 ## Security boundary
 
 SHA-256 in v0.1.0 binds identifiers and detects accidental/corrupt bytes. It is
 not authentication, confidentiality, authorization, replay protection, or a
 production cryptographic profile. Production security remains future
 specification work.
-

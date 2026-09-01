@@ -17,6 +17,10 @@ pub trait ProgressStore {
     fn progress(&self) -> u64;
     /// Whether exact bytes are verified and committed.
     fn is_complete(&self) -> bool;
+    /// Durable peer record ceiling agreed by capability exchange.
+    fn negotiated_max_record_size(&self) -> Option<u16>;
+    /// Persist a negotiated ceiling, monotonically narrowing an existing value.
+    fn persist_negotiated_max_record_size(&mut self, maximum: u16) -> Result<u16, StoreError>;
     /// Whether a named negotiation phase survived the prior contact.
     fn flag(&self, flag: StateFlag) -> bool;
     /// Persist a negotiation phase.
@@ -69,6 +73,8 @@ struct State {
     size: u64,
     kind: u8,
     schema_fingerprint: [u8; 16],
+    #[serde(default)]
+    negotiated_max_record_size: Option<u16>,
     phases: u8,
     status: Status,
     accepted_bytes: u64,
@@ -82,6 +88,7 @@ impl State {
             size: representation.size(),
             kind: representation.kind as u8,
             schema_fingerprint: representation.schema_fingerprint,
+            negotiated_max_record_size: None,
             phases: 0,
             status: Status::Empty,
             accepted_bytes: 0,
@@ -152,6 +159,15 @@ impl FileStore {
     }
 
     fn reconcile(&mut self) -> Result<(), StoreError> {
+        if self.state.negotiated_max_record_size.is_none()
+            && (self.flag(StateFlag::SenderCapabilities)
+                || self.flag(StateFlag::ReceiverCapabilities))
+        {
+            // Pre-fix state did not retain the negotiated value. Explicitly
+            // repeat capability exchange instead of guessing a larger limit.
+            self.state.phases &= !phase_bit(StateFlag::SenderCapabilities);
+            self.state.phases &= !phase_bit(StateFlag::ReceiverCapabilities);
+        }
         if self.complete_path.exists() {
             let bytes = fs::read(&self.complete_path)?;
             if u64::try_from(bytes.len()).map_err(|_| StoreError::Length)?
@@ -224,6 +240,20 @@ impl ProgressStore for FileStore {
 
     fn is_complete(&self) -> bool {
         self.state.status == Status::Complete && self.complete_path.exists()
+    }
+
+    fn negotiated_max_record_size(&self) -> Option<u16> {
+        self.state.negotiated_max_record_size
+    }
+
+    fn persist_negotiated_max_record_size(&mut self, maximum: u16) -> Result<u16, StoreError> {
+        let effective = self
+            .state
+            .negotiated_max_record_size
+            .map_or(maximum, |existing| existing.min(maximum));
+        self.state.negotiated_max_record_size = Some(effective);
+        self.save()?;
+        Ok(effective)
     }
 
     fn flag(&self, flag: StateFlag) -> bool {
@@ -317,7 +347,13 @@ impl ProgressStore for FileStore {
         if self.progress() != self.representation.size() {
             return Ok(false);
         }
-        let bytes = fs::read(&self.part_path)?;
+        let bytes = if self.part_path.exists() {
+            fs::read(&self.part_path)?
+        } else if self.representation.size() == 0 {
+            Vec::new()
+        } else {
+            return Err(StoreError::NotComplete);
+        };
         if verify_digest(&bytes, self.representation.digest).is_err() {
             fs::rename(&self.part_path, self.next_quarantine())?;
             self.state.accepted_bytes = 0;
@@ -325,6 +361,10 @@ impl ProgressStore for FileStore {
             self.state.phases &= !phase_bit(StateFlag::Receipt);
             self.save()?;
             return Err(StoreError::Integrity);
+        }
+        if !self.part_path.exists() {
+            let file = File::create(&self.part_path)?;
+            file.sync_all()?;
         }
         replace_file(&self.part_path, &self.complete_path)?;
         self.state.status = Status::Complete;
@@ -446,5 +486,41 @@ mod tests {
             store.accept_data(0, b"Dupl"),
             Err(StoreError::ConflictingDuplicate)
         ));
+    }
+
+    #[test]
+    fn absent_zero_length_part_commits_and_reopens() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(Vec::new());
+        let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+        assert_eq!(store.progress(), representation.size());
+        assert!(!store.part_path().exists());
+        assert!(store.verify_and_commit().unwrap());
+        assert!(store.is_complete());
+        assert_eq!(store.read_complete().unwrap(), Vec::<u8>::new());
+
+        let reopened = FileStore::open(root.path(), representation).unwrap();
+        assert!(reopened.is_complete());
+        assert_eq!(reopened.read_complete().unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn negotiated_record_ceiling_persists_and_only_narrows() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(b"negotiation".to_vec());
+        let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+        assert_eq!(store.persist_negotiated_max_record_size(512).unwrap(), 512);
+        assert_eq!(
+            store.persist_negotiated_max_record_size(1_024).unwrap(),
+            512
+        );
+        drop(store);
+
+        let mut reopened = FileStore::open(root.path(), representation).unwrap();
+        assert_eq!(reopened.negotiated_max_record_size(), Some(512));
+        assert_eq!(
+            reopened.persist_negotiated_max_record_size(128).unwrap(),
+            128
+        );
     }
 }

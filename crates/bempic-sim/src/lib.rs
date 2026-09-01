@@ -8,7 +8,7 @@ use bempic_model::PreparedRepresentation;
 use bempic_store::{FileStore, ProgressStore, StateFlag, StoreError};
 use bempic_sync::{
     data_record_overhead, Accounting, Capabilities, Data, Direction, Offer, Operation, Receipt,
-    ReceiptStage, Request, Summary, SyncError,
+    ReceiptStage, Request, Summary, SyncError, MAX_OPERATION_RECORD_SIZE,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -249,6 +249,22 @@ pub struct TransferReport {
     pub reconstructed: Vec<u8>,
 }
 
+fn advertised_record_limit(config: CarrierConfig) -> u16 {
+    u16::try_from(config.max_record_bytes.min(usize::from(u16::MAX)))
+        .expect("carrier record limit is bounded to u16")
+}
+
+fn effective_record_limit<S: ProgressStore>(store: &S, carrier: &DeterministicCarrier) -> usize {
+    let negotiated = store
+        .negotiated_max_record_size()
+        .map_or(MAX_OPERATION_RECORD_SIZE, usize::from);
+    carrier
+        .opportunity()
+        .max_record_bytes
+        .min(negotiated)
+        .min(MAX_OPERATION_RECORD_SIZE)
+}
+
 /// Advance one representation through a carrier opportunity.
 #[allow(clippy::too_many_lines)]
 pub fn run_contact<S: ProgressStore>(
@@ -267,7 +283,7 @@ pub fn run_contact<S: ProgressStore>(
         ($operation:expr, $carrier_direction:expr, $accounting_direction:expr) => {{
             let operation = $operation;
             let encoded = operation.encode()?;
-            if encoded.len() > carrier.opportunity().max_record_bytes
+            if encoded.len() > effective_record_limit(store, &carrier)
                 || u64::try_from(encoded.len()).unwrap_or(u64::MAX)
                     > carrier.opportunity().remaining_bempic_bytes
             {
@@ -281,10 +297,10 @@ pub fn run_contact<S: ProgressStore>(
     }
 
     if !store.flag(StateFlag::SenderCapabilities) {
+        let advertised = advertised_record_limit(config);
         let value = Operation::Capabilities(Capabilities {
             encoding_generation: 0,
-            max_record_size: u16::try_from(config.max_record_bytes.min(u16::MAX as usize))
-                .expect("bounded to u16"),
+            max_record_size: advertised,
             features: 0,
         });
         match deliver!(
@@ -292,15 +308,18 @@ pub fn run_contact<S: ProgressStore>(
             CarrierDirection::SenderToReceiver,
             Direction::SenderToReceiver
         ) {
-            Some(true) => store.mark(StateFlag::SenderCapabilities)?,
+            Some(true) => {
+                store.persist_negotiated_max_record_size(advertised)?;
+                store.mark(StateFlag::SenderCapabilities)?;
+            }
             Some(false) | None => return Ok(report(config, before, store, accounting, &carrier)),
         }
     }
     if !store.flag(StateFlag::ReceiverCapabilities) {
+        let advertised = advertised_record_limit(config);
         let value = Operation::Capabilities(Capabilities {
             encoding_generation: 0,
-            max_record_size: u16::try_from(config.max_record_bytes.min(u16::MAX as usize))
-                .expect("bounded to u16"),
+            max_record_size: advertised,
             features: 0,
         });
         match deliver!(
@@ -308,7 +327,10 @@ pub fn run_contact<S: ProgressStore>(
             CarrierDirection::ReceiverToSender,
             Direction::ReceiverToSender
         ) {
-            Some(true) => store.mark(StateFlag::ReceiverCapabilities)?,
+            Some(true) => {
+                store.persist_negotiated_max_record_size(advertised)?;
+                store.mark(StateFlag::ReceiverCapabilities)?;
+            }
             Some(false) | None => return Ok(report(config, before, store, accounting, &carrier)),
         }
     }
@@ -338,6 +360,13 @@ pub fn run_contact<S: ProgressStore>(
         }
     }
 
+    if !store.is_complete()
+        && store.progress() == representation.size()
+        && store.verify_and_commit()?
+    {
+        accounting.useful_committed_bytes += representation.size();
+    }
+
     if !store.is_complete() {
         let request_size = Operation::Request(Request {
             representation_id: representation.id,
@@ -350,9 +379,8 @@ pub fn run_contact<S: ProgressStore>(
         let budget_capacity = opportunity.remaining_bempic_bytes.saturating_sub(
             u64::try_from(request_size + data_record_overhead()).unwrap_or(u64::MAX),
         );
-        let record_capacity = opportunity
-            .max_record_bytes
-            .saturating_sub(data_record_overhead());
+        let record_capacity =
+            effective_record_limit(store, &carrier).saturating_sub(data_record_overhead());
         let remaining = representation.size().saturating_sub(store.progress());
         let payload_limit = remaining
             .min(budget_capacity)
@@ -568,5 +596,82 @@ mod tests {
             .contacts
             .iter()
             .all(|item| item.spent_bytes <= item.budget_bytes));
+    }
+
+    #[test]
+    fn final_suffix_interruption_reopens_commits_and_receipts() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(b"durable final suffix".repeat(8));
+        {
+            let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+            store.accept_data(0, &representation.bytes).unwrap();
+            assert_eq!(store.progress(), representation.size());
+            assert!(!store.is_complete());
+        }
+
+        let mut reopened = FileStore::open(root.path(), representation.clone()).unwrap();
+        assert_eq!(reopened.progress(), representation.size());
+        assert!(!reopened.is_complete());
+        let report = run_contact(&representation, &mut reopened, contact(512, None)).unwrap();
+        assert!(report.complete);
+        assert!(report.receipt_sent);
+        assert_eq!(report.accounting.representation_payload_bytes, 0);
+        assert_eq!(
+            report.accounting.useful_committed_bytes,
+            representation.size()
+        );
+        assert_eq!(reopened.read_complete().unwrap(), representation.bytes);
+    }
+
+    #[test]
+    fn zero_length_representation_transfers_without_part_file() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(Vec::new());
+        let run =
+            run_until_complete(root.path(), &representation, &[contact(512, None)], 2).unwrap();
+        assert_eq!(run.contacts.len(), 1);
+        assert_eq!(run.reconstructed, Vec::<u8>::new());
+        assert_eq!(run.accounting.representation_payload_bytes, 0);
+        assert!(run.contacts[0].complete);
+        assert!(run.contacts[0].receipt_sent);
+    }
+
+    #[test]
+    fn larger_later_carrier_stays_within_persisted_negotiated_limit() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(vec![0x5a; 1_000]);
+        let first_config = contact(300, None);
+        let mut first_store = FileStore::open(root.path(), representation.clone()).unwrap();
+        let first = run_contact(&representation, &mut first_store, first_config).unwrap();
+        assert!(first.progress_after > 0);
+        assert_eq!(first_store.negotiated_max_record_size(), Some(128));
+        drop(first_store);
+
+        let mut second_config = contact(2_000, None);
+        second_config.max_record_bytes = 1_024;
+        let mut reopened = FileStore::open(root.path(), representation.clone()).unwrap();
+        let second = run_contact(&representation, &mut reopened, second_config).unwrap();
+        assert_eq!(reopened.negotiated_max_record_size(), Some(128));
+        assert!(second.events.iter().all(|event| event.record_bytes <= 128));
+        assert!(second.progress_after > first.progress_after);
+    }
+
+    #[test]
+    fn carrier_above_envelope_is_capped_without_oversized_operation() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(vec![0xa5; 70_000]);
+        let mut config = contact(100_000, None);
+        config.max_record_bytes = MAX_OPERATION_RECORD_SIZE + 4_096;
+        config.bandwidth_bps = 10_000_000;
+        let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+        let report = run_contact(&representation, &mut store, config).unwrap();
+
+        assert_eq!(store.negotiated_max_record_size(), Some(u16::MAX));
+        assert!(report
+            .events
+            .iter()
+            .all(|event| u16::try_from(event.record_bytes).is_ok()));
+        assert_eq!(report.progress_after, u64::from(u16::MAX) - 29);
+        assert!(!report.complete);
     }
 }

@@ -12,6 +12,8 @@ const ENVELOPE_SIZE: usize = 5;
 
 /// Maximum experimental record payload encoded by the u16 envelope.
 pub const MAX_OPERATION_PAYLOAD: usize = u16::MAX as usize;
+/// Maximum complete experimental record, including its five-byte envelope.
+pub const MAX_OPERATION_RECORD_SIZE: usize = ENVELOPE_SIZE + MAX_OPERATION_PAYLOAD;
 
 /// Cacheable local record capabilities. Generation zero is disposable.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -535,6 +537,24 @@ mod tests {
         .encode()
         .unwrap();
         assert_eq!(encoded.len(), data_record_overhead());
+    }
+
+    #[test]
+    fn operation_envelope_ceiling_is_exact() {
+        let representation = prepare_binary(Vec::new());
+        let largest = Operation::Data(Data {
+            representation_id: representation.id,
+            offset: 0,
+            payload: vec![0x5a; MAX_OPERATION_PAYLOAD - 24],
+        });
+        assert_eq!(largest.encode().unwrap().len(), MAX_OPERATION_RECORD_SIZE);
+
+        let oversized = Operation::Data(Data {
+            representation_id: representation.id,
+            offset: 0,
+            payload: vec![0x5a; MAX_OPERATION_PAYLOAD - 23],
+        });
+        assert!(matches!(oversized.encode(), Err(SyncError::TooLarge)));
     }
 
     #[test]
