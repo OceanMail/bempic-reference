@@ -219,10 +219,12 @@ pub fn decode(
         }
         (_, GENERIC_FORM) => {
             let record = decode_generic(tag, &bytes[position..], supported_extensions)?;
-            if matches!(
-                &record.operation,
-                Operation::Capabilities(value) if *value == profile_capabilities()
-            ) {
+            if record.extensions.is_empty()
+                && matches!(
+                    &record.operation,
+                    Operation::Capabilities(value) if *value == profile_capabilities()
+                )
+            {
                 return Err(Error::NonCanonical("profile capabilities alias"));
             }
             if record.extensions.is_empty() && matches!(record.operation, Operation::Summary(_)) {
@@ -385,7 +387,7 @@ fn take_array<const N: usize>(bytes: &[u8], position: &mut usize) -> Result<[u8;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v01::{collection_checkpoint, Data};
+    use crate::v01::{collection_checkpoint, Data, Extension};
     use bempic_model::v01::RepresentationId;
 
     fn summary() -> Summary {
@@ -469,6 +471,25 @@ mod tests {
         assert_eq!(
             decode(&overlong, &BTreeSet::new(), Context::default()),
             Err(Error::NonCanonical("varint"))
+        );
+    }
+
+    #[test]
+    fn profile_capabilities_with_record_extensions_use_the_generic_form() {
+        let record = Record {
+            operation: Operation::Capabilities(profile_capabilities()),
+            extensions: vec![Extension {
+                id: 7,
+                critical: true,
+                value: vec![0x55],
+            }],
+        };
+        let bytes = encode(&record, Context::default()).unwrap();
+        let supported = BTreeSet::from([7]);
+        assert_eq!(bytes[2], GENERIC_FORM);
+        assert_eq!(
+            decode(&bytes, &supported, Context::default()).unwrap(),
+            record
         );
     }
 
