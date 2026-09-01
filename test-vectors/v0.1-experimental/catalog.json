@@ -7,9 +7,10 @@
     {
       "id": "V01",
       "name": "empty-and-equal-collections",
-      "status": "fail",
-      "implemented_evidence": ["checkpoints_delta_full_fallback_and_cursors_are_deterministic", "bempic-conformance measurements"],
-      "result": "Semantic equality is implemented; measured 88-byte warm and 292-byte cold transactions exceed the 64/128-byte acceptance ceilings."
+      "status": "partial",
+      "implemented_evidence": ["checkpoints_delta_full_fallback_and_cursors_are_deterministic", "compact-codec evidence artifact", "independent Python V01 recomputation"],
+      "result": "The prescribed 100-message private-use candidate measures 35-byte warm and 75-byte cold transactions and passes 64/128-byte ceilings.",
+      "pending": ["The candidate has no experimental registry allocation and the complete mandatory V01 state/bundle evidence remains incomplete."]
     },
     {
       "id": "V02",

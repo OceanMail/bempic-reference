@@ -3,17 +3,21 @@
     "path": "benchmarks/results/conformance-tranche-2-2026-09-01.json",
     "status": "partial-with-blockers"
   },
+  "compact_codec_artifact": {
+    "path": "benchmarks/results/compact-codec-evidence-2026-09-01.json",
+    "status": "private-use-candidate-passes-compactness-gates"
+  },
   "claimed_classes": [],
   "claimed_profiles": [],
   "conformance_claim": false,
   "dependency_lock_sha256": "a74cbd54aa0baf0e463008d06cfdb7e158298ccea79b495368928f28ad2f5acf",
   "implementation": {
-    "commit": "c8d940ca69fe98aecf72185f80f4a2b3254aaf24",
+    "commit": "38c01eb41d96a02c97478650efbde859888e6908",
     "name": "bempic-reference",
     "version": "0.1.0-candidate"
   },
   "mandatory_vector_catalog": [
-    {"id": "V01", "status": "fail", "reason": "Empty/equal semantics exist, but measured warm/cold no-change sizes fail 64/128-byte gates."},
+    {"id": "V01", "status": "partial", "reason": "The prescribed 100-message private candidate measures 35-byte warm and 75-byte cold no-change exchanges; allocation and the complete mandatory state bundle remain pending."},
     {"id": "V02", "status": "pass", "reason": "Known-checkpoint delta test offers only appended sequence values."},
     {"id": "V03", "status": "pass", "reason": "Unknown-checkpoint full fallback and durable cursor reopen are tested."},
     {"id": "V04", "status": "partial", "reason": "Legacy fixtures cover typical/international/reply-chain; full v0.1 maximum metadata catalog is absent."},
@@ -37,14 +41,22 @@
     "rustc": "1.81.0 (eeb90cda1 2024-09-04)"
   },
   "published_vectors": {
-    "bundle_digest": "2411074bd16b6c3a4073849d6ceae730f0e06e288ed58816a60b1839d6317fb0",
+    "bundle_digest": "bd6e693d890a0359ff74821294a8cb2e3f628291cd084d844b831491aac92a9e",
     "invalid": [{"name": "representation-data-trailing-byte", "status": "pass"}],
     "manifest": "test-vectors/v0.1-experimental/manifest.json",
     "catalog": "test-vectors/v0.1-experimental/catalog.json",
     "catalog_entries": 15,
     "proposed_specification_questions": 5,
     "status": "incomplete-release-blocker",
-    "valid": [{"name": "representation-data-explicit-selection", "status": "pass"}]
+    "valid": [{"name": "representation-data-explicit-selection", "status": "pass"}],
+    "compact_candidate": {
+      "path": "test-vectors/v0.1-compact-candidate/vectors.json",
+      "status": "private-use-nonconformant",
+      "valid": 3,
+      "invalid": 7,
+      "maximum_witnesses": 7,
+      "independent_verification": "pass"
+    }
   },
   "requirements": [
     {"id": "SEM-01", "status": "partial", "requirement": "Enforce every core bound before allocation or durable mutation.", "evidence": ["bempic_model::v01 validation", "bempic_sync::v01 strict Reader"], "gap": "Maximum manifest/count/nesting and all allocation-attack vectors are incomplete."},
@@ -71,18 +83,18 @@
     {"id": "SEM-22", "status": "pass", "requirement": "Treat contact loss and budget exhaustion as pauses.", "evidence": ["deterministic simulator interruption/resume tests"], "gap": null},
     {"id": "SEM-23", "status": "pass", "requirement": "Avoid M4P/DataLink responsibility duplication.", "evidence": ["OpaqueRecordCarrier", "mock_m4p_binding_preserves_one_complete_opaque_record"], "gap": null},
 
-    {"id": "CODEC-01", "status": "blocked", "requirement": "Publish registered codec ID/revision and status.", "evidence": ["experimental implementation-local ID 0xffff0001"], "gap": "Specification registry has no approved codec allocation."},
+    {"id": "CODEC-01", "status": "blocked", "requirement": "Publish registered codec ID/revision and status.", "evidence": ["implementation-local private-use ID 0xffff0001 revision 2", "explicit nonconformance warning"], "gap": "Specification registry has no experimental allocation; the private ID cannot be public interoperability evidence."},
     {"id": "CODEC-02", "status": "pass", "requirement": "Publish exact supported schema fingerprints.", "evidence": ["schemas/v0.1", "independent verifier"], "gap": null},
-    {"id": "CODEC-03", "status": "partial", "requirement": "Document field types, presence, order, bounds, precision, and rounding.", "evidence": ["copied canonical schema descriptors", "v01 Rust types"], "gap": "No complete codec-profile document; approximate numeric fields are N/A but not cataloged as vectors."},
+    {"id": "CODEC-03", "status": "pass", "requirement": "Document field types, presence, order, bounds, precision, and rounding.", "evidence": ["docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md", "explicit numeric-precision not-applicable vector"], "gap": null},
     {"id": "CODEC-04", "status": "pass", "requirement": "Every operation is complete and length-delimited.", "evidence": ["Record envelope", "all_seven_operations_are_exact_and_round_trip"], "gap": null},
-    {"id": "CODEC-05", "status": "pass", "requirement": "State maximum encoded size for every operation/schema.", "evidence": ["declared_max_encoded_size", "schema bounds"], "gap": null},
-    {"id": "CODEC-06", "status": "pass", "requirement": "Compute exact encoded size without trial serialization.", "evidence": ["Record::exact_encoded_size", "4,100 exact-size property cases"], "gap": null},
-    {"id": "CODEC-07", "status": "pass", "requirement": "Prove worst-case maximum claims.", "evidence": ["maximum_size_analysis arithmetic terms", "every_declared_operation_maximum_has_an_exact_valid_witness", "committed tranche-2 measurement artifact"], "gap": null},
-    {"id": "CODEC-08", "status": "pass", "requirement": "Deterministic encoding and strict/canonical decoding.", "evidence": ["fixed-width deterministic codec", "strict boolean/envelope/trailing checks"], "gap": null},
+    {"id": "CODEC-05", "status": "pass", "requirement": "State maximum encoded size for every operation/schema.", "evidence": ["compact declared_max_encoded_size", "profile maximum table", "opaque schema exact n-byte formula"], "gap": null},
+    {"id": "CODEC-06", "status": "pass", "requirement": "Compute exact encoded size without trial serialization.", "evidence": ["v01_compact::exact_encoded_size", "4,100 candidate exact-size property cases"], "gap": null},
+    {"id": "CODEC-07", "status": "pass", "requirement": "Prove worst-case maximum claims.", "evidence": ["compact maximum_size_analysis arithmetic terms", "seven reaching witness digests", "compact-codec evidence artifact"], "gap": null},
+    {"id": "CODEC-08", "status": "pass", "requirement": "Deterministic encoding and strict/canonical decoding.", "evidence": ["explicit-context deterministic compact codec", "minimal varint/form/cache canonicality tests"], "gap": null},
     {"id": "CODEC-09", "status": "pass", "requirement": "Demonstrate unknown-field and extension criticality behavior.", "evidence": ["optional/critical extension test"], "gap": null},
-    {"id": "CODEC-10", "status": "partial", "requirement": "Test allocation and nesting limits before allocation.", "evidence": ["bounded Reader counts/lengths"], "gap": "Complete one-past-every-count and nesting-attack vector set is absent."},
-    {"id": "CODEC-11", "status": "fail", "requirement": "Pass mandatory valid, boundary, malformed, and non-canonical vectors.", "evidence": ["one valid and one invalid published vector"], "gap": "Mandatory catalog is explicitly incomplete."},
-    {"id": "CODEC-12", "status": "partial", "requirement": "Independent decoder/verifier agrees on vector bundle.", "evidence": ["scripts/verify_conformance.py passes published bundle"], "gap": "Independence is established only for the incomplete published bundle."},
+    {"id": "CODEC-10", "status": "partial", "requirement": "Test allocation and nesting limits before allocation.", "evidence": ["bounded Reader counts/lengths", "candidate one-past outer record rejected before body allocation"], "gap": "Complete one-past-every-inherited-count and nesting-attack vector set is absent."},
+    {"id": "CODEC-11", "status": "fail", "requirement": "Pass mandatory valid, boundary, malformed, and non-canonical vectors.", "evidence": ["compact candidate valid/boundary/malformed/truncated/noncanonical/one-past pack", "legacy one-valid/one-invalid bundle"], "gap": "The mandatory V01-V15 byte/state catalog remains explicitly incomplete."},
+    {"id": "CODEC-12", "status": "partial", "requirement": "Independent decoder/verifier agrees on vector bundle.", "evidence": ["Python independently recomputes V01 checkpoint, decodes compact forms, checks failures/maxima and artifact/profile digests"], "gap": "Independent coverage passes the compact candidate pack, but the mandatory V01-V15 bundle remains incomplete."},
 
     {"id": "PERSIST-01", "status": "pass", "requirement": "Interrupt before/after offer page commit.", "evidence": ["durable cursor reopen and duplicate-page test"], "gap": null},
     {"id": "PERSIST-02", "status": "pass", "requirement": "Interrupt before/after prefix-length update.", "evidence": ["prefix percentage matrix"], "gap": null},
@@ -109,10 +121,10 @@
     {"id": "REF-06", "status": "pass", "requirement": "Hard total/directional budgets, exact preflight, accounting counters.", "evidence": ["BudgetScope", "bempic_sim::v01 integrated exact preflight/accounting", "tranche-2 artifact"], "gap": null},
     {"id": "REF-07", "status": "pass", "requirement": "Crash persistence, reopen, source change, corruption retry, idempotency.", "evidence": ["RepresentationStore nine-boundary matrix", "shared directory-entry durability primitive", "all endpoint restart modes", "corruption quarantine/retry", "duplicate replay accounting"], "gap": null},
     {"id": "REF-08", "status": "partial", "requirement": "Capability/version/schema/codec/extension negotiation and all incompatibilities.", "evidence": ["negotiate and extension tests"], "gap": "Every fail-closed incompatibility/stale-cache trace is not bundled."},
-    {"id": "REF-09", "status": "blocked", "requirement": "One labeled deterministic codec with registered ID, bounds, maxima, canonical parameters, exact analysis.", "evidence": ["experimental codec implementation", "exact maxima and witnesses"], "gap": "No codec registry allocation or approved codec profile."},
-    {"id": "REF-10", "status": "pass", "requirement": "Malformed fuzz/property tests with published tools/findings.", "evidence": ["conformance/fuzz-report.json", "50,000 random + 187 structured + 4,100 property cases; zero findings"], "gap": null},
+    {"id": "REF-09", "status": "blocked", "requirement": "One labeled deterministic codec with registered ID, bounds, maxima, canonical parameters, exact analysis.", "evidence": ["complete private compact candidate profile", "exact maxima, witnesses, vectors, and independent verification"], "gap": "The candidate uses a private-use ID and has no specification-registry experimental allocation."},
+    {"id": "REF-10", "status": "pass", "requirement": "Malformed fuzz/property tests with published tools/findings.", "evidence": ["conformance/fuzz-report.json", "B1: 50,000 random + 187 structured + 4,100 property cases; compact: the same random stream + 175 structured + 4,100 property cases; zero findings"], "gap": null},
     {"id": "REF-11", "status": "fail", "requirement": "Consume vector format and publish complete mandatory bundle cross-platform.", "evidence": ["15-entry machine-readable catalog", "independent verifier", "explicit pending inventory"], "gap": "Mandatory byte/state vector catalog remains incomplete."},
-    {"id": "REF-12", "status": "partial", "requirement": "Independent decoder/vector verifier.", "evidence": ["Python independent verifier"], "gap": "Only incomplete bundle covered."},
+    {"id": "REF-12", "status": "partial", "requirement": "Independent decoder/vector verifier.", "evidence": ["Python independently verifies the compact candidate and legacy published bundle"], "gap": "The mandatory V01-V15 bundle itself remains incomplete."},
     {"id": "REF-13", "status": "partial", "requirement": "Reproduce transitional proof or accepted normative differences.", "evidence": ["23 Python tests", "Rust/Python legacy vector"], "gap": "No maintainer-accepted parity decision."},
     {"id": "REF-14", "status": "blocked", "requirement": "Raw, MIME, B2F/LZHUF, codec, interruption, persistence measurements.", "evidence": ["legacy raw/MIME/compression corpus", "tranche-2 interruption/persistence/full-restart artifact"], "gap": "A legally compatible reproducible B2F/LZHUF oracle remains unavailable."},
     {"id": "REF-15", "status": "pass", "requirement": "Zero deferred payload, budgets, durable prefix, exact quote demonstrations.", "evidence": ["tests/demos/benchmarks"], "gap": null},
@@ -120,7 +132,7 @@
     {"id": "REF-17", "status": "blocked", "requirement": "Immutable passing commit SHA and green CI URL in specification release PR.", "evidence": ["reference commit 30696c17c9d63c54ce56a0eb4574bcee4e34d682", "push run 33456973653 success", "pull-request run 33456976303 success"], "gap": "The reference evidence exists, but immutable acceptance in the specification repository release PR requires external maintainer coordination."},
 
     {"id": "ACCEPT-01", "status": "fail", "requirement": "All CONFORMANCE correctness items pass.", "evidence": ["this report"], "gap": "Multiple semantic/codec/persistence/accounting items are partial, failed, or blocked."},
-    {"id": "ACCEPT-02", "status": "fail", "requirement": "Warm no-change <=64 B and cold no-change <=128 B.", "evidence": ["88 B warm; 292 B cold"], "gap": "Experimental codec exceeds both thresholds."},
+    {"id": "ACCEPT-02", "status": "pass", "requirement": "Warm no-change <=64 B and cold no-change <=128 B.", "evidence": ["prescribed V01 private candidate: 35 B warm; 75 B cold", "independent Python recomputation"], "gap": null},
     {"id": "ACCEPT-03", "status": "pass", "requirement": "Adding one message does not retransmit retained 100 manifests.", "evidence": ["delta reconciliation filters sequence greater than retained checkpoint"], "gap": null},
     {"id": "ACCEPT-04", "status": "pass", "requirement": "No deterministic plan exceeds budget or exact preflight quote.", "evidence": ["integrated quote_prediction_error_octets=0", "BudgetScope exact-fit/one-below", "all-operation exact-size witnesses"], "gap": null},
     {"id": "ACCEPT-05", "status": "pass", "requirement": "No unselected attachment payload emitted.", "evidence": ["deferred attachment gate"], "gap": null},
@@ -137,13 +149,13 @@
     "release_status": "release-candidate-not-tagged"
   },
   "test_tools": {
-    "fuzz_property": {"duration_ms": 69, "name": "bempic-deterministic-malformed-runner", "seed_corpus_sha256": "6f11a2d92a0e7aa2378886bceb9eb8e542eede0bfc4f4b46d5b6b129394f5bb0", "unresolved_findings": 0, "version": "0.1.0"},
-    "independent_verifier": {"name": "python-independent-v0.1", "rfc8785": "0.1.4"}
+    "fuzz_property": {"duration_ms": 73, "name": "bempic-deterministic-malformed-runner", "seed_corpus_sha256": "1442397586ab6af7c58543f7acd5d29d9812067dbc8bf8ff0ae1562b4b968ad7", "unresolved_findings": 0, "version": "0.1.0"},
+    "independent_verifier": {"name": "python-independent-v0.1", "rfc8785": "0.1.4", "compact_valid": 3, "compact_invalid": 7, "compact_maximum_witnesses": 7}
   },
   "unresolved_blockers": [
     "No registered v0.1 experimental codec allocation or approved codec profile.",
     "Mandatory vector catalog is incomplete.",
-    "Warm/cold no-change sizes are 88/292 B and fail 64/128 B gates.",
+    "The 35/75 B private candidate passes the compactness thresholds, but its cache-bound alias and codec ID require specification governance/allocation before interoperability evidence.",
     "No approved legally compatible B2F/LZHUF oracle or performance result.",
     "A normative semantic_bytes definition and complete full-width manifest fixture corpus are absent.",
     "Required cross-product scope for prefix/restart/storage interruption coverage is ambiguous.",

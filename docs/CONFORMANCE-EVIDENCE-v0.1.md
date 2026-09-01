@@ -40,7 +40,7 @@ Status meanings:
 | SEM-17 | partial | Four receipt meanings and idempotency IDs exist; application-profile state integration is absent. |
 | SEM-18 | pass | Highest identical generation and preference-sum schema/codec selection with deterministic tie-breaks is tested. |
 | SEM-19 | pass | Unknown optional extensions are skipped and critical ones reject before return/mutation. |
-| SEM-20 | partial | 50,000 arbitrary, 187 structured malformed, and 4,100 property cases have zero findings; mandatory malformed catalog incomplete. |
+| SEM-20 | partial | B1 has 50,000 arbitrary, 187 structured malformed, and 4,100 property cases; the compact candidate reuses the 50,000-case stream and adds 175 structured plus 4,100 exact-size cases. All have zero findings; the mandatory malformed catalog remains incomplete. |
 | SEM-21 | partial | Stores are scoped per collection/representation; no complete hostile multi-object trace is published. |
 | SEM-22 | pass | Contact loss and budget exhaustion remain resumable simulator pauses. |
 | SEM-23 | pass | Opaque carrier and mock M4P adapter contain no routing, TTL, fragment, deduplication, or link reliability state. |
@@ -49,18 +49,18 @@ Status meanings:
 
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
-| CODEC-01 | blocked | Codec `0xffff0001/1` is explicitly implementation-local; the specification registry has no allocation. |
+| CODEC-01 | blocked | Codec `0xffff0001/2` is explicitly private-use and nonconformant; the specification registry has no experimental allocation. |
 | CODEC-02 | pass | Canonical schema bytes and exact 32-octet fingerprints are published. |
-| CODEC-03 | partial | Schema and Rust types cover fields/bounds; a complete profile document and numeric-N/A vector declaration are absent. |
+| CODEC-03 | pass | The compact-candidate profile documents field order, widths, presence, bounds, canonical forms, and explicit numeric-precision N/A. |
 | CODEC-04 | pass | All seven operations use complete length-delimited experimental records. |
-| CODEC-05 | pass | Per-operation conservative maxima and schema limits are declared. |
-| CODEC-06 | pass | Exact arithmetic sizing agrees with serialization over 4,100 generated payload sizes. |
-| CODEC-07 | pass | Arithmetic proof terms and exact valid maximum-size witnesses cover all seven disposable experimental operations. |
-| CODEC-08 | pass | Encoding is deterministic; fixed-width scalars, booleans, lengths, tags, and trailing bytes decode strictly. |
+| CODEC-05 | pass | Candidate per-operation maxima and exact opaque-schema size limits are declared. |
+| CODEC-06 | pass | Candidate exact arithmetic sizing agrees with serialization over 4,100 generated payload sizes. |
+| CODEC-07 | pass | Candidate proof terms and reaching-witness digests cover all seven operations. |
+| CODEC-08 | pass | Explicit-context encoding is deterministic; compact forms, minimal varints, cache use, and inherited fields decode strictly. |
 | CODEC-09 | pass | Optional/critical extension behavior is executable. |
-| CODEC-10 | partial | Reader checks counts/lengths before allocation; exhaustive one-past/nesting vectors are absent. |
-| CODEC-11 | fail | Published bundle has one valid and one invalid vector; mandatory catalog is incomplete. |
-| CODEC-12 | partial | Independent Python decoder agrees on every published vector, but the bundle itself is incomplete. |
+| CODEC-10 | partial | Readers check lengths before allocation and the outer one-past vector passes; exhaustive inherited count/nesting vectors remain absent. |
+| CODEC-11 | fail | The compact pack covers every requested vector category, but the mandatory V01–V15 byte/state bundle remains incomplete. |
+| CODEC-12 | partial | Independent Python verifies the compact pack and legacy bundle; mandatory V01–V15 coverage remains incomplete. |
 
 ## Persistence and crash cases
 
@@ -99,10 +99,10 @@ Status meanings:
 | REF-06 | pass | Hard total/directional budgets, exact preflight, and accounting are one integrated v0.1 path. |
 | REF-07 | pass | Full-width crash/reopen, shared directory-entry durability, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
 | REF-08 | partial | Negotiation core works; every incompatibility/stale-cache trace is not bundled. |
-| REF-09 | blocked | Exact experimental maxima are proven, but no approved codec registry allocation or profile exists. |
+| REF-09 | blocked | The private compact profile, maxima, witnesses, and verifier exist, but no specification-registry experimental allocation exists. |
 | REF-10 | pass | Tool/version/duration/corpus digest and zero findings are published in `conformance/fuzz-report.json`. |
 | REF-11 | fail | V01–V15 now have a machine-readable evidence/pending inventory, but the mandatory byte/state bundle remains incomplete. |
-| REF-12 | partial | Independent verifier covers only the incomplete published bundle. |
+| REF-12 | partial | Independent verifier covers the compact pack and legacy bundle, but the mandatory V01–V15 bundle remains incomplete. |
 | REF-13 | partial | Oracle and differential tests pass; no maintainer-accepted parity disposition exists. |
 | REF-14 | blocked | Raw/MIME/candidate/interruption/persistence/full-restart figures exist; a legal B2F oracle does not. |
 | REF-15 | pass | Deferred payload, total budgets, durable final prefix, and deterministic quote tests pass. |
@@ -114,7 +114,7 @@ Status meanings:
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
 | ACCEPT-01 | fail | Not all correctness checklist items pass. |
-| ACCEPT-02 | fail | Measured v0.1 experimental profile: warm 88 B (limit 64), cold 292 B (limit 128). |
+| ACCEPT-02 | pass | Prescribed 100-message private candidate: warm 35 B (limit 64), cold 75 B (limit 128); B1 comparison remains 88/292 B. |
 | ACCEPT-03 | pass | Known checkpoint sends only sequences after the retained generation; old entries are not offered. |
 | ACCEPT-04 | pass | Integrated preflight predicts every submitted record exactly and no total or directional budget is crossed. |
 | ACCEPT-05 | pass | No unselected attachment payload. |

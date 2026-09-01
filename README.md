@@ -16,6 +16,13 @@ fixtures, and cross-language vectors.
 > schema fingerprints may change incompatibly before a wire generation is
 > selected by the specification project.
 
+The private-use compact revision-2 evidence candidate now measures the
+prescribed 100-message no-change cases at 35 B warm and 75 B cold, versus the B1
+comparison's 88/292 B. It remains explicitly nonconformant and unusable as
+public interoperability evidence until the specification repository reviews
+the state-bound alias and performs an experimental allocation. See
+[`docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md).
+
 ## Architectural boundary
 
 ```text
@@ -58,6 +65,8 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo run -p bempic-conformance --release
 cargo run -p bempic-conformance --release -- tranche2-measurements
+cargo run -p bempic-conformance --release -- compact-codec-evidence
+cargo run -p bempic-conformance --release -- verify-compact-codec-evidence
 cargo run -p bempic-cli -- demo
 cargo run -p bempic-bench --release
 python -m pip install --require-hashes -r requirements-conformance.txt

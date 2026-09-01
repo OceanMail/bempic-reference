@@ -2,8 +2,10 @@
 //! Deterministic malformed-input and exact-size property runner.
 
 use bempic_model::v01::{
-    fingerprint_from_hex, PreparedRepresentation, OPAQUE_SCHEMA_FINGERPRINT_HEX,
-    SPECIFICATION_COMMIT,
+    fingerprint_from_hex, ContentDigest, MessageManifest, ObjectId, PartDescriptor, PartRole,
+    PreparedRepresentation, RepresentationDescriptor, RepresentationId, SchemaFingerprint,
+    MAX_CODEC_PARAMETER_OCTETS, MAX_OPERATION_OCTETS, MAX_REPRESENTATION_OCTETS,
+    OPAQUE_SCHEMA_FINGERPRINT_HEX, SPECIFICATION_COMMIT,
 };
 use bempic_sim::{
     v01::{
@@ -12,9 +14,13 @@ use bempic_sim::{
     CarrierConfig,
 };
 use bempic_sync::v01::{
-    collection_checkpoint, maximum_size_analysis, Capabilities, CodecPreference, Data, Failure,
-    FailureCode, Operation, OperationKind, ProtocolGeneration, Record, RepresentationDataRequest,
-    RepresentationSelection, Request, SecurityClass,
+    collection_checkpoint, maximum_size_analysis, Capabilities, CodecPreference, CollectionEntry,
+    Cursor, Data, Extension, ExtensionDeclaration, Failure, FailureCode, Offer, OfferMode,
+    Operation, OperationKind, ProtocolGeneration, Receipt, ReceiptStatus, Record,
+    RepresentationDataRequest, RepresentationSelection, Request, SecurityClass, Summary,
+};
+use bempic_sync::v01_compact::{
+    self as compact, Context as CompactContext, PRIVATE_CODEC_ID, PRIVATE_CODEC_REVISION,
 };
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
@@ -27,6 +33,9 @@ use std::time::Instant;
 const TOOL_NAME: &str = "bempic-deterministic-malformed-runner";
 const TOOL_VERSION: &str = "0.1.0";
 const RANDOM_CASES: u64 = 50_000;
+const COMPACT_SPECIFICATION_COMMIT: &str = "40da35bd150290d039a185fb95388422ede5f1d1";
+const COMPACT_PROFILE_SHA256: &str =
+    "0633ed81272a89d085ceb8ae01aef82ac1749a9babe2fac9b59d0d1f3529fce8";
 
 #[derive(Serialize)]
 struct Report {
@@ -40,11 +49,14 @@ struct Report {
     duration_ms: u128,
     random_cases: u64,
     structured_malformed_cases: u64,
+    compact_structured_malformed_cases: u64,
     exact_size_property_cases: u64,
+    compact_exact_size_property_cases: u64,
     seed_corpus_sha256: String,
     panics: u64,
     malformed_unexpected_accepts: u64,
     round_trip_failures: u64,
+    compact_round_trip_failures: u64,
     unresolved_findings: u64,
 }
 
@@ -145,6 +157,7 @@ fn next_random(state: &mut u64) -> u64 {
     *state
 }
 
+#[allow(clippy::too_many_lines)]
 fn run() -> Result<Report, Box<dyn Error>> {
     let started = Instant::now();
     let supported = BTreeSet::new();
@@ -155,6 +168,8 @@ fn run() -> Result<Report, Box<dyn Error>> {
     let mut corpus_hasher = Sha256::new();
     let mut structured_malformed_cases = 0_u64;
     let mut malformed_unexpected_accepts = 0_u64;
+    let mut compact_structured_malformed_cases = 0_u64;
+    let mut compact_malformed_unexpected_accepts = 0_u64;
     let mut panics = 0_u64;
 
     for seed in &seeds {
@@ -190,6 +205,46 @@ fn run() -> Result<Report, Box<dyn Error>> {
         }
     }
 
+    let compact_seeds = seed_records()
+        .into_iter()
+        .map(|record| compact::encode(&record, CompactContext::default()))
+        .collect::<Result<Vec<_>, _>>()?;
+    for seed in &compact_seeds {
+        corpus_hasher.update((seed.len() as u64).to_be_bytes());
+        corpus_hasher.update(seed);
+        for length in 0..seed.len() {
+            compact_structured_malformed_cases += 1;
+            let outcome = catch_unwind(AssertUnwindSafe(|| {
+                compact::decode(&seed[..length], &supported, CompactContext::default())
+            }));
+            match outcome {
+                Ok(Ok(_)) => compact_malformed_unexpected_accepts += 1,
+                Ok(Err(_)) => {}
+                Err(_) => panics += 1,
+            }
+        }
+        let mut trailing = seed.clone();
+        trailing.push(0);
+        compact_structured_malformed_cases += 1;
+        match catch_unwind(AssertUnwindSafe(|| {
+            compact::decode(&trailing, &supported, CompactContext::default())
+        })) {
+            Ok(Ok(_)) => compact_malformed_unexpected_accepts += 1,
+            Ok(Err(_)) => {}
+            Err(_) => panics += 1,
+        }
+        let mut false_length = seed.clone();
+        false_length[1] ^= 1;
+        compact_structured_malformed_cases += 1;
+        match catch_unwind(AssertUnwindSafe(|| {
+            compact::decode(&false_length, &supported, CompactContext::default())
+        })) {
+            Ok(Ok(_)) => compact_malformed_unexpected_accepts += 1,
+            Ok(Err(_)) => {}
+            Err(_) => panics += 1,
+        }
+    }
+
     let deterministic_seed = 0x4245_4d50_4943_0001_u64;
     let mut random_state = deterministic_seed;
     for case in 0..RANDOM_CASES {
@@ -208,11 +263,20 @@ fn run() -> Result<Report, Box<dyn Error>> {
         if catch_unwind(AssertUnwindSafe(|| Record::decode(&bytes, &supported))).is_err() {
             panics += 1;
         }
+        if catch_unwind(AssertUnwindSafe(|| {
+            compact::decode(&bytes, &supported, CompactContext::default())
+        }))
+        .is_err()
+        {
+            panics += 1;
+        }
     }
 
     let representation = prepared();
     let mut exact_size_property_cases = 0_u64;
     let mut round_trip_failures = 0_u64;
+    let mut compact_exact_size_property_cases = 0_u64;
+    let mut compact_round_trip_failures = 0_u64;
     for payload_length in (1..=4_096).chain([8_191, 16_383, 32_767, 65_535]) {
         let record = Record {
             operation: Operation::Data(Data {
@@ -228,27 +292,390 @@ fn run() -> Result<Report, Box<dyn Error>> {
         if bytes.len() != expected || Record::decode(&bytes, &supported)? != record {
             round_trip_failures += 1;
         }
+        compact_exact_size_property_cases += 1;
+        let compact_expected = compact::exact_encoded_size(&record, CompactContext::default())?;
+        let compact_bytes = compact::encode(&record, CompactContext::default())?;
+        if compact_bytes.len() != compact_expected
+            || compact::decode(&compact_bytes, &supported, CompactContext::default())? != record
+        {
+            compact_round_trip_failures += 1;
+        }
     }
 
-    let unresolved_findings = panics + malformed_unexpected_accepts + round_trip_failures;
+    let unresolved_findings = panics
+        + malformed_unexpected_accepts
+        + compact_malformed_unexpected_accepts
+        + round_trip_failures
+        + compact_round_trip_failures;
     Ok(Report {
         schema: "bempic-conformance-fuzz-report-v0.1",
         implementation_version: env!("CARGO_PKG_VERSION"),
         specification_commit: SPECIFICATION_COMMIT,
         tool_name: TOOL_NAME,
         tool_version: TOOL_VERSION,
-        methodology: "deterministic LCG arbitrary records; every strict truncation, trailing-byte, and false-envelope-length mutation of three valid seeds; exact-size/round-trip payload sweep",
+        methodology: "deterministic LCG arbitrary records against B1 and compact candidate; every strict truncation, trailing-byte, and false-envelope-length mutation of three valid seeds per codec; exact-size/round-trip payload sweep for both codecs",
         deterministic_seed,
         duration_ms: started.elapsed().as_millis(),
         random_cases: RANDOM_CASES,
         structured_malformed_cases,
+        compact_structured_malformed_cases,
         exact_size_property_cases,
+        compact_exact_size_property_cases,
         seed_corpus_sha256: hex::encode(corpus_hasher.finalize()),
         panics,
         malformed_unexpected_accepts,
         round_trip_failures,
+        compact_round_trip_failures,
         unresolved_findings,
     })
+}
+
+fn prescribed_v01_summary() -> Result<Summary, Box<dyn Error>> {
+    const CREATED_AT_2026_01_01: u64 = 1_767_225_600;
+    let mut entries = Vec::with_capacity(100);
+    for index in 0_u32..100 {
+        let mut object_hasher = Sha256::new();
+        object_hasher.update(b"BEMPIC-V01-OBJECT\0");
+        object_hasher.update(index.to_be_bytes());
+        let object_id = ObjectId(object_hasher.finalize().into());
+        let body = format!("message-{index:03}\n").into_bytes();
+        let prepared = PreparedRepresentation::prepare(
+            body,
+            None,
+            compact::PROFILE_SCHEMA_FINGERPRINT,
+            PRIVATE_CODEC_ID,
+            PRIVATE_CODEC_REVISION,
+            Vec::new(),
+            None,
+        )?;
+        let manifest = MessageManifest {
+            object_id,
+            created_at: CREATED_AT_2026_01_01 + u64::from(index),
+            sender: "sender@example.test".into(),
+            recipients: vec!["recipient@example.test".into()],
+            subject: Some(format!("Message {index:03}")),
+            parts: vec![PartDescriptor {
+                part_id: 0,
+                role: PartRole::Body,
+                media_type: "text/plain".into(),
+                filename: None,
+                representations: vec![prepared.descriptor.clone()],
+            }],
+        };
+        manifest.validate()?;
+        entries.push(CollectionEntry {
+            sequence: u64::from(index) + 1,
+            object_id,
+            part_id: 0,
+            descriptor: prepared.descriptor,
+        });
+    }
+    let collection_id: [u8; 32] = Sha256::digest(b"BEMPIC-V01-COLLECTION\0").into();
+    Ok(collection_checkpoint(collection_id, 100, &entries)?)
+}
+
+fn maximum_record_extensions() -> Vec<Extension> {
+    (0_u32..32)
+        .map(|id| Extension {
+            id,
+            critical: false,
+            value: vec![0xa5; 1_024],
+        })
+        .collect()
+}
+
+fn maximum_offer_entries() -> Vec<CollectionEntry> {
+    (0_u8..128)
+        .map(|index| CollectionEntry {
+            sequence: u64::from(index) + 1,
+            object_id: ObjectId([index; 32]),
+            part_id: u32::from(index),
+            descriptor: RepresentationDescriptor {
+                representation_id: RepresentationId([index.wrapping_add(128); 32]),
+                schema_fingerprint: SchemaFingerprint([index; 32]),
+                codec_id: u32::from(index),
+                codec_revision: u32::MAX,
+                codec_parameters: vec![0x5a; MAX_CODEC_PARAMETER_OCTETS],
+                encoded_length: MAX_REPRESENTATION_OCTETS,
+                decoded_length: Some(MAX_REPRESENTATION_OCTETS),
+                content_digest: ContentDigest([index; 32]),
+                usefulness_expiry: Some(u64::MAX),
+            },
+        })
+        .collect()
+}
+
+#[allow(clippy::too_many_lines)]
+fn maximum_witness_records() -> Vec<(OperationKind, Record)> {
+    let extensions = maximum_record_extensions();
+    let schemas = (0_u8..16)
+        .map(|index| SchemaFingerprint([index; 32]))
+        .collect::<Vec<_>>();
+    let capabilities = Record {
+        operation: Operation::Capabilities(Capabilities {
+            protocol_generations: (0_u16..8)
+                .map(|major| ProtocolGeneration {
+                    major,
+                    minor: u16::MAX,
+                })
+                .collect(),
+            schema_fingerprints: schemas.clone(),
+            codec_preferences: schemas
+                .iter()
+                .enumerate()
+                .map(|(index, schema_fingerprint)| CodecPreference {
+                    codec_id: u32::try_from(index).expect("sixteen indexes fit u32"),
+                    revision: u32::MAX,
+                    schema_fingerprint: *schema_fingerprint,
+                })
+                .collect(),
+            max_operation_octets: u32::try_from(MAX_OPERATION_OCTETS)
+                .expect("core operation maximum fits u32"),
+            max_data_payload_octets: MAX_REPRESENTATION_OCTETS,
+            receipt_levels: u8::MAX,
+            security_class: SecurityClass::Confidential,
+            extensions: (0_u32..32)
+                .map(|id| ExtensionDeclaration {
+                    id,
+                    critical: id % 2 == 0,
+                })
+                .collect(),
+        }),
+        extensions: extensions.clone(),
+    };
+    let summary = Record {
+        operation: Operation::Summary(Summary {
+            collection_id: [0xff; 32],
+            generation: u64::MAX,
+            item_count: 1_000_000,
+            collection_digest: [0xff; 32],
+        }),
+        extensions: extensions.clone(),
+    };
+    let offer_entries = maximum_offer_entries();
+    let offer = Record {
+        operation: Operation::Offer(Offer {
+            collection_id: [0xff; 32],
+            mode: OfferMode::Full,
+            base_generation: 0,
+            target_generation: 128,
+            first_cursor: Cursor::Full(offer_entries[0].key()),
+            last_cursor: Cursor::Full(offer_entries[127].key()),
+            descriptors: offer_entries,
+            more: true,
+        }),
+        extensions: extensions.clone(),
+    };
+    let request = Record {
+        operation: Operation::Request(Request::RepresentationData(RepresentationDataRequest {
+            budget_id: [0xff; 16],
+            max_total_bempic_bytes: u64::MAX,
+            max_sender_to_receiver_bytes: u64::MAX,
+            max_receiver_to_sender_bytes: u64::MAX,
+            selections: (0_u8..128)
+                .map(|index| RepresentationSelection {
+                    representation_id: RepresentationId([index; 32]),
+                    durable_prefix_offset: MAX_REPRESENTATION_OCTETS,
+                    max_desired_payload_octets: MAX_REPRESENTATION_OCTETS,
+                })
+                .collect(),
+        })),
+        extensions: extensions.clone(),
+    };
+    let legacy_data_maximum = maximum_size_analysis(OperationKind::Data);
+    let data_payload_octets = legacy_data_maximum.maximum_encoded_octets
+        - legacy_data_maximum.envelope_octets
+        - legacy_data_maximum.record_extension_octets
+        - (32 + 8 + 4);
+    let data = Record {
+        operation: Operation::Data(Data {
+            representation_id: RepresentationId([0xff; 32]),
+            offset: 0,
+            payload: vec![0xa5; data_payload_octets],
+        }),
+        extensions: extensions.clone(),
+    };
+    let receipt = Record {
+        operation: Operation::Receipt(Receipt {
+            subject_id: [0xff; 32],
+            status: ReceiptStatus::RepresentationCommitted,
+            verified_digest: Some(ContentDigest([0xff; 32])),
+            idempotency_id: [0xff; 16],
+            reason: Some("x".repeat(256)),
+        }),
+        extensions: extensions.clone(),
+    };
+    let failure = Record {
+        operation: Operation::Failure(Failure {
+            code: FailureCode::LimitExceeded,
+            scope: vec![0xff; 64],
+            retryable: true,
+            detail: Some("x".repeat(256)),
+        }),
+        extensions,
+    };
+    vec![
+        (OperationKind::Capabilities, capabilities),
+        (OperationKind::Summary, summary),
+        (OperationKind::Offer, offer),
+        (OperationKind::Request, request),
+        (OperationKind::Data, data),
+        (OperationKind::Receipt, receipt),
+        (OperationKind::Failure, failure),
+    ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn compact_codec_evidence() -> Result<serde_json::Value, Box<dyn Error>> {
+    let summary = prescribed_v01_summary()?;
+    let capabilities = Record {
+        operation: Operation::Capabilities(compact::profile_capabilities()),
+        extensions: Vec::new(),
+    };
+    let summary_record = Record {
+        operation: Operation::Summary(summary),
+        extensions: Vec::new(),
+    };
+    let warm_context = CompactContext {
+        cached_summary: Some(&summary),
+    };
+    let legacy_capabilities = capabilities.encode()?;
+    let legacy_summary = summary_record.encode()?;
+    let compact_capabilities = compact::encode(&capabilities, CompactContext::default())?;
+    let compact_cold_summary = compact::encode(&summary_record, CompactContext::default())?;
+    let compact_warm_summary = compact::encode(&summary_record, warm_context)?;
+    if compact::decode(&compact_warm_summary, &BTreeSet::new(), warm_context)? != summary_record {
+        return Err("compact cached summary did not round trip".into());
+    }
+    let mut corrupted_warm_summary = compact_warm_summary.clone();
+    let final_octet = corrupted_warm_summary
+        .last_mut()
+        .ok_or("compact cached summary was empty")?;
+    *final_octet ^= 1;
+    if compact::decode(&corrupted_warm_summary, &BTreeSet::new(), warm_context).is_ok() {
+        return Err("compact cached summary accepted a mismatched binding".into());
+    }
+    let supported_extensions = (0_u32..32).collect::<BTreeSet<_>>();
+    let mut witnesses = Vec::new();
+    for (kind, record) in maximum_witness_records() {
+        let analysis = compact::maximum_size_analysis(kind);
+        let exact = compact::exact_encoded_size(&record, CompactContext::default())?;
+        let encoded = compact::encode(&record, CompactContext::default())?;
+        if exact != encoded.len()
+            || exact != analysis.maximum_encoded_octets
+            || compact::decode(&encoded, &supported_extensions, CompactContext::default())?
+                != record
+        {
+            return Err(format!("compact maximum witness failed for {}", kind.name()).into());
+        }
+        witnesses.push(serde_json::json!({
+            "kind": kind.name(),
+            "analysis": analysis,
+            "encoded_length": encoded.len(),
+            "sha256": hex::encode(Sha256::digest(&encoded)),
+            "legacy_encoded_length": record.exact_encoded_size()?,
+        }));
+    }
+    let warm = compact_warm_summary.len();
+    let cold = compact_capabilities.len() * 2 + compact_cold_summary.len();
+    Ok(serde_json::json!({
+        "schema": "bempic-reference-v0.1-compact-codec-evidence",
+        "specification_commit": COMPACT_SPECIFICATION_COMMIT,
+        "codec": {
+            "id": PRIVATE_CODEC_ID,
+            "revision": PRIVATE_CODEC_REVISION,
+            "status": "implementation-local-private-use-nonconformant",
+            "registry_allocation": null,
+            "canonical_parameters_hex": "",
+            "profile": "docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md",
+            "profile_sha256": COMPACT_PROFILE_SHA256,
+        },
+        "prescribed_v01_fixture": {
+            "messages": 100,
+            "collection_id": hex::encode(summary.collection_id),
+            "generation": summary.generation,
+            "item_count": summary.item_count,
+            "collection_digest": hex::encode(summary.collection_digest),
+            "object_id_rule": "SHA-256(BEMPIC-V01-OBJECT\\0 || U32(index))",
+            "first_index": 0,
+            "last_index": 99,
+        },
+        "before_b1": {
+            "capability_operation_octets": legacy_capabilities.len(),
+            "warm_no_change_octets": legacy_summary.len(),
+            "cold_no_change_octets": legacy_capabilities.len() * 2 + legacy_summary.len(),
+            "capabilities_hex": hex::encode(&legacy_capabilities),
+            "summary_hex": hex::encode(&legacy_summary),
+            "capabilities_segments": [
+                {"range": "0..2", "octets": 2, "field": "B1 magic"},
+                {"range": "2..3", "octets": 1, "field": "CAPABILITIES tag"},
+                {"range": "3..7", "octets": 4, "field": "payload length"},
+                {"range": "7..12", "octets": 5, "field": "one protocol count and U16/U16 tuple"},
+                {"range": "12..45", "octets": 33, "field": "one schema count and full 32-octet fingerprint"},
+                {"range": "45..86", "octets": 41, "field": "one codec count, U32 ID, U32 revision, repeated full fingerprint"},
+                {"range": "86..100", "octets": 14, "field": "operation/data maxima, receipt levels, security class"},
+                {"range": "100..102", "octets": 2, "field": "empty capability-extension and record-extension counts"}
+            ],
+            "summary_segments": [
+                {"range": "0..2", "octets": 2, "field": "B1 magic"},
+                {"range": "2..3", "octets": 1, "field": "SUMMARY tag"},
+                {"range": "3..7", "octets": 4, "field": "payload length"},
+                {"range": "7..39", "octets": 32, "field": "full collection ID"},
+                {"range": "39..47", "octets": 8, "field": "U64 generation"},
+                {"range": "47..55", "octets": 8, "field": "U64 item count"},
+                {"range": "55..87", "octets": 32, "field": "full collection digest"},
+                {"range": "87..88", "octets": 1, "field": "empty record-extension count"}
+            ]
+        },
+        "after_compact_candidate": {
+            "capability_operation_octets": compact_capabilities.len(),
+            "warm_no_change_octets": warm,
+            "warm_gate_maximum_octets": 64,
+            "warm_gate_pass": warm <= 64,
+            "cold_full_summary_octets": compact_cold_summary.len(),
+            "cold_no_change_octets": cold,
+            "cold_gate_maximum_octets": 128,
+            "cold_gate_pass": cold <= 128,
+            "capabilities_hex": hex::encode(&compact_capabilities),
+            "warm_summary_hex": hex::encode(&compact_warm_summary),
+            "cold_summary_hex": hex::encode(&compact_cold_summary),
+            "capabilities_segments": [
+                {"range": "0..1", "octets": 1, "field": "candidate marker and CAPABILITIES tag"},
+                {"range": "1..2", "octets": 1, "field": "canonical body length"},
+                {"range": "2..3", "octets": 1, "field": "exact static profile alias"}
+            ],
+            "warm_summary_segments": [
+                {"range": "0..1", "octets": 1, "field": "candidate marker and SUMMARY tag"},
+                {"range": "1..2", "octets": 1, "field": "canonical body length"},
+                {"range": "2..3", "octets": 1, "field": "exact durable-checkpoint alias"},
+                {"range": "3..35", "octets": 32, "field": "full SHA-256 binding of the exact cached summary"}
+            ],
+            "cold_summary_segments": [
+                {"range": "0..1", "octets": 1, "field": "candidate marker and SUMMARY tag"},
+                {"range": "1..2", "octets": 1, "field": "canonical body length"},
+                {"range": "2..3", "octets": 1, "field": "full-summary form"},
+                {"range": "3..35", "octets": 32, "field": "full collection ID"},
+                {"range": "35..36", "octets": 1, "field": "minimal generation varint (100)"},
+                {"range": "36..37", "octets": 1, "field": "minimal item-count varint (100)"},
+                {"range": "37..69", "octets": 32, "field": "full collection digest"}
+            ]
+        },
+        "maximum_witnesses": witnesses,
+        "boundary_vectors": [
+            {"name": "profile-capabilities", "kind": "valid", "encoded_hex": hex::encode(&compact_capabilities), "encoded_length": compact_capabilities.len()},
+            {"name": "cold-full-summary-100", "kind": "valid-boundary", "encoded_hex": hex::encode(&compact_cold_summary), "encoded_length": compact_cold_summary.len()},
+            {"name": "warm-cached-summary-100", "kind": "valid-boundary", "encoded_hex": hex::encode(&compact_warm_summary), "encoded_length": compact_warm_summary.len(), "requires_exact_cached_summary": true},
+            {"name": "truncated-capabilities", "kind": "invalid-truncated", "input_hex": "b101", "expected_error": "truncated"},
+            {"name": "false-envelope-length", "kind": "invalid-malformed", "input_hex": "b10201", "expected_error": "compact envelope length"},
+            {"name": "overlong-body-length-varint", "kind": "invalid-noncanonical", "input_hex": "b1810001", "expected_error": "non-canonical varint"},
+            {"name": "cached-summary-without-context", "kind": "invalid-context", "input_hex": hex::encode(&compact_warm_summary), "expected_error": "cached summary context"},
+            {"name": "cached-summary-binding-mismatch", "kind": "invalid-context", "input_hex": hex::encode(&corrupted_warm_summary), "expected_error": "cached summary binding", "requires_exact_cached_summary": true},
+            {"name": "full-summary-when-cache-matches", "kind": "invalid-noncanonical", "input_hex": hex::encode(&compact_cold_summary), "expected_error": "non-canonical full cached summary"},
+            {"name": "one-past-outer-maximum", "kind": "invalid-one-past", "symbolic_octets": compact::MAX_COMPACT_RECORD_OCTETS + 1, "expected_error": "compact operation size before body allocation"}
+        ],
+        "numeric_precision_vectors": {"status": "not-applicable", "reason": "profile has no approximate numeric fields"},
+        "security": {"class": "public", "authentication": false, "confidentiality": false},
+    }))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -382,7 +809,37 @@ fn tranche_two_measurements() -> Result<serde_json::Value, Box<dyn Error>> {
     }))
 }
 
+fn verify_compact_codec_artifact() -> Result<(), Box<dyn Error>> {
+    let generated = compact_codec_evidence()?;
+    let committed: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../benchmarks/results/compact-codec-evidence-2026-09-01.json"
+    ))?;
+    if generated != committed {
+        return Err("committed compact-codec evidence differs from deterministic output".into());
+    }
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "status": "pass",
+            "warm_no_change_octets": generated["after_compact_candidate"]["warm_no_change_octets"],
+            "cold_no_change_octets": generated["after_compact_candidate"]["cold_no_change_octets"],
+            "maximum_witnesses": generated["maximum_witnesses"].as_array().map_or(0, Vec::len),
+        }))?
+    );
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
+    if env::args().nth(1).as_deref() == Some("verify-compact-codec-evidence") {
+        return verify_compact_codec_artifact();
+    }
+    if env::args().nth(1).as_deref() == Some("compact-codec-evidence") {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&compact_codec_evidence()?)?
+        );
+        return Ok(());
+    }
     if env::args().nth(1).as_deref() == Some("vector") {
         let representation = prepared();
         let record = seed_records().remove(0);

@@ -24,6 +24,8 @@ adds full-width RFC 8785 schema fingerprints, explicit selection, seven core
 operations, reconciliation, crash, accounting, vector, codec, and acceptance
 gates. The current candidate implements a substantial executable subset, but
 must not be tagged or described as conformant. In particular, no codec is
-registered, the mandatory vector catalog is incomplete, the experimental
-profile misses the 64/128-byte no-change limits, a compatible B2F/LZHUF oracle
-has not been selected, and external M4P binding review is pending.
+registered, the mandatory vector catalog is incomplete, a compatible
+B2F/LZHUF oracle has not been selected, and external M4P binding review is
+pending. The private compact revision-2 candidate passes the 64/128-byte
+no-change limits at 35/75 bytes, but its private-use ID and unreviewed
+state-bound alias do not change release or conformance status.
