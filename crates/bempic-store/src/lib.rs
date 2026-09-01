@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 //! Persistent contiguous-prefix storage for cross-contact continuation.
 
+/// Crash-conscious v0.1 negotiation, checkpoint, page-cursor, and receipt state.
+pub mod v01;
+
 use bempic_model::{ContentDigest, PreparedRepresentation, RepresentationId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -27,6 +30,10 @@ pub trait ProgressStore {
     fn mark(&mut self, flag: StateFlag) -> Result<(), StoreError>;
     /// Append or idempotently replay offset data.
     fn accept_data(&mut self, offset: u64, payload: &[u8]) -> Result<AcceptOutcome, StoreError>;
+    /// Verify an exact complete staging prefix without committing it.
+    fn verify_staged(&mut self) -> Result<bool, StoreError>;
+    /// Atomically commit a previously verified staging prefix.
+    fn commit_verified(&mut self) -> Result<bool, StoreError>;
     /// Verify a complete prefix and make it durable.
     fn verify_and_commit(&mut self) -> Result<bool, StoreError>;
     /// Read exact committed bytes after re-verification.
@@ -63,6 +70,8 @@ enum Status {
     Empty,
     Offered,
     Partial,
+    CompleteUnverified,
+    Verified,
     Complete,
 }
 
@@ -188,7 +197,19 @@ impl FileStore {
                 return Err(StoreError::DataExceedsOffer);
             }
             self.state.accepted_bytes = actual;
-            self.state.status = if actual == 0 {
+            self.state.status = if actual == self.representation.size() {
+                if self.state.status == Status::Verified {
+                    let bytes = if self.part_path.exists() {
+                        fs::read(&self.part_path)?
+                    } else {
+                        Vec::new()
+                    };
+                    verify_digest(&bytes, self.representation.digest)?;
+                    Status::Verified
+                } else {
+                    Status::CompleteUnverified
+                }
+            } else if actual == 0 {
                 match self.state.status {
                     Status::Offered => Status::Offered,
                     _ => Status::Empty,
@@ -331,7 +352,11 @@ impl ProgressStore for FileStore {
         }
         let accepted = u64::try_from(suffix.len()).map_err(|_| StoreError::Length)?;
         self.state.accepted_bytes += accepted;
-        self.state.status = Status::Partial;
+        self.state.status = if self.state.accepted_bytes == self.representation.size() {
+            Status::CompleteUnverified
+        } else {
+            Status::Partial
+        };
         self.save()?;
         Ok(AcceptOutcome {
             accepted_bytes: accepted,
@@ -339,7 +364,7 @@ impl ProgressStore for FileStore {
         })
     }
 
-    fn verify_and_commit(&mut self) -> Result<bool, StoreError> {
+    fn verify_staged(&mut self) -> Result<bool, StoreError> {
         if self.is_complete() {
             self.read_complete()?;
             return Ok(true);
@@ -354,13 +379,30 @@ impl ProgressStore for FileStore {
         } else {
             return Err(StoreError::NotComplete);
         };
-        if verify_digest(&bytes, self.representation.digest).is_err() {
-            fs::rename(&self.part_path, self.next_quarantine())?;
+        if verify_digest(&bytes, self.representation.digest).is_err()
+            || !self.representation.verify()
+        {
+            if self.part_path.exists() {
+                fs::rename(&self.part_path, self.next_quarantine())?;
+            }
             self.state.accepted_bytes = 0;
             self.state.status = Status::Offered;
             self.state.phases &= !phase_bit(StateFlag::Receipt);
             self.save()?;
             return Err(StoreError::Integrity);
+        }
+        self.state.status = Status::Verified;
+        self.save()?;
+        Ok(true)
+    }
+
+    fn commit_verified(&mut self) -> Result<bool, StoreError> {
+        if self.is_complete() {
+            self.read_complete()?;
+            return Ok(true);
+        }
+        if self.state.status != Status::Verified {
+            return Ok(false);
         }
         if !self.part_path.exists() {
             let file = File::create(&self.part_path)?;
@@ -371,6 +413,13 @@ impl ProgressStore for FileStore {
         self.state.accepted_bytes = self.representation.size();
         self.save()?;
         Ok(true)
+    }
+
+    fn verify_and_commit(&mut self) -> Result<bool, StoreError> {
+        if !self.verify_staged()? {
+            return Ok(false);
+        }
+        self.commit_verified()
     }
 
     fn read_complete(&self) -> Result<Vec<u8>, StoreError> {
@@ -522,5 +571,90 @@ mod tests {
             reopened.persist_negotiated_max_record_size(128).unwrap(),
             128
         );
+    }
+
+    #[test]
+    fn required_prefix_interruption_matrix_reopens_at_exact_durable_bytes() {
+        let bytes = (0_u8..=255).cycle().take(1_000).collect::<Vec<_>>();
+        for percentage in [0_u64, 1, 10, 50, 90] {
+            let root = tempdir().unwrap();
+            let representation = prepare_binary(bytes.clone());
+            let prefix = representation.size() * percentage / 100;
+            if prefix > 0 {
+                let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+                store
+                    .accept_data(0, &representation.bytes[..prefix as usize])
+                    .unwrap();
+            }
+            let mut reopened = FileStore::open(root.path(), representation.clone()).unwrap();
+            assert_eq!(reopened.progress(), prefix);
+            reopened
+                .accept_data(prefix, &representation.bytes[prefix as usize..])
+                .unwrap();
+            assert!(reopened.verify_and_commit().unwrap());
+            assert_eq!(reopened.read_complete().unwrap(), representation.bytes);
+        }
+    }
+
+    #[test]
+    fn post_verification_pre_commit_reopens_and_commits_without_payload() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(b"verified staging".to_vec());
+        {
+            let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+            store.accept_data(0, &representation.bytes).unwrap();
+            assert!(store.verify_staged().unwrap());
+            assert!(!store.is_complete());
+        }
+        let mut reopened = FileStore::open(root.path(), representation.clone()).unwrap();
+        assert_eq!(reopened.progress(), representation.size());
+        assert!(reopened.commit_verified().unwrap());
+        assert_eq!(reopened.read_complete().unwrap(), representation.bytes);
+    }
+
+    #[test]
+    fn post_commit_pre_receipt_reopens_without_false_or_lost_commit() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(b"commit before receipt".to_vec());
+        {
+            let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+            store.accept_data(0, &representation.bytes).unwrap();
+            assert!(store.verify_and_commit().unwrap());
+            assert!(!store.flag(StateFlag::Receipt));
+        }
+        let mut reopened = FileStore::open(root.path(), representation).unwrap();
+        assert!(reopened.is_complete());
+        assert!(!reopened.flag(StateFlag::Receipt));
+        reopened.mark(StateFlag::Receipt).unwrap();
+        drop(reopened);
+        let final_store = FileStore::open(
+            root.path(),
+            prepare_binary(b"commit before receipt".to_vec()),
+        )
+        .unwrap();
+        assert!(final_store.flag(StateFlag::Receipt));
+    }
+
+    #[test]
+    fn corrupt_complete_prefix_is_quarantined_and_clean_retry_commits() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(b"expected bytes".to_vec());
+        let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+        store.accept_data(0, b"corrupted byte").unwrap();
+        assert!(matches!(store.verify_staged(), Err(StoreError::Integrity)));
+        assert_eq!(store.progress(), 0);
+        assert!(!store.part_path().exists());
+        assert!(root
+            .path()
+            .read_dir()
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|entry| entry
+                .path()
+                .extension()
+                .is_some_and(|value| value == "corrupt")));
+        store.accept_data(0, &representation.bytes).unwrap();
+        assert!(store.verify_and_commit().unwrap());
+        assert_eq!(store.read_complete().unwrap(), representation.bytes);
     }
 }

@@ -1,6 +1,6 @@
 [package]
-name = "bempic-store"
-description = "Crash-conscious persistence, reopen, resume, and reconstruction for BEMPIC"
+name = "bempic-conformance"
+description = "Deterministic malformed-input and property runner for BEMPIC"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,10 +14,6 @@ hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-thiserror.workspace = true
-
-[dev-dependencies]
-tempfile.workspace = true
 
 [lints]
 workspace = true

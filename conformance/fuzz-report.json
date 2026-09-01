@@ -1,0 +1,19 @@
+{
+  "deterministic_seed": 4775307987118129153,
+  "duration_ms": 69,
+  "exact_size_property_cases": 4100,
+  "implementation_version": "0.1.0",
+  "malformed_unexpected_accepts": 0,
+  "methodology": "deterministic LCG arbitrary records; every strict truncation, trailing-byte, and false-envelope-length mutation of three valid seeds; exact-size/round-trip payload sweep",
+  "panics": 0,
+  "random_cases": 50000,
+  "recorded_at_utc": "2026-09-01T00:46:33.3868685Z",
+  "round_trip_failures": 0,
+  "schema": "bempic-conformance-fuzz-report-v0.1",
+  "seed_corpus_sha256": "6f11a2d92a0e7aa2378886bceb9eb8e542eede0bfc4f4b46d5b6b129394f5bb0",
+  "specification_commit": "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401",
+  "structured_malformed_cases": 187,
+  "tool_name": "bempic-deterministic-malformed-runner",
+  "tool_version": "0.1.0",
+  "unresolved_findings": 0
+}

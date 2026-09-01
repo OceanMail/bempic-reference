@@ -1,9 +1,15 @@
-# BEMPIC Reference v0.1.0
+# BEMPIC Reference v0.1.0 candidate
 
 BEMPIC is an experimental, deterministic application-synchronization layer for
 messaging over severely constrained and intermittently connected carriers.
 This repository contains the Apache-2.0 reference implementation, simulator,
 fixtures, and cross-language vectors.
+
+> **Conformance status:** not v0.1.0 conformant and not release-ready. The
+> requirement-by-requirement evidence under `conformance/` is authoritative.
+> The implementation targets specification commit
+> `c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401`, but mandatory codec, vector,
+> performance, B2F, interruption, and external M4P-review gates remain open.
 
 > **No stable wire format:** every encoding in v0.1.0 is an experimental
 > measurement candidate. The markers, field widths, hashes, record kinds, and
@@ -36,7 +42,13 @@ digests provide deterministic identity and corruption detection only.
 - `bempic-sim`: deterministic budgets, bandwidth, latency, disconnects, time.
 - `bempic-cli`: inspect, demo, interrupt/reopen/resume, and vector commands.
 - `bempic-bench`: deterministic fixture and carrier measurements.
+- `bempic-conformance`: deterministic malformed-input/property runner and
+  v0.1 acceptance measurements.
 - `prototype`: the original standard-library Python behavioral oracle.
+
+Generation-0.1 semantic types live in `bempic_model::v01`,
+`bempic_sync::v01`, and `bempic_store::v01`. Root-level `BMSG0`/`B0` types are
+retained only for prototype parity and review-regression coverage.
 
 ## Run
 
@@ -44,8 +56,11 @@ digests provide deterministic identity and corruption detection only.
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
+cargo run -p bempic-conformance --release
 cargo run -p bempic-cli -- demo
 cargo run -p bempic-bench --release
+python -m pip install --require-hashes -r requirements-conformance.txt
+python scripts/verify_conformance.py
 python -m unittest prototype.tests.test_proof -v
 python -m prototype.demo
 python -m prototype.benchmark
@@ -54,6 +69,10 @@ python -m prototype.benchmark
 The committed files under `test-vectors/experimental-v0/` are differential
 vectors shared by Rust and Python. They are experimental fixtures, not a
 compatibility promise.
+
+`test-vectors/v0.1-experimental/` uses the merged specification's bundle
+contract and an independent Python verifier. Its manifest explicitly marks the
+mandatory catalog incomplete; it is evidence, not a conformance claim.
 
 ## License
 

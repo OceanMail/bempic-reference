@@ -2,7 +2,8 @@
 //! Deterministic complete-record carrier simulation and transfer harness.
 
 use bempic_carrier::{
-    CarrierDirection, CarrierError, DeliveryOutcome, OpaqueRecordCarrier, Opportunity,
+    CarrierDirection, CarrierError, CostPrecision, DeliveryOutcome, OpaqueRecordCarrier,
+    Opportunity,
 };
 use bempic_model::PreparedRepresentation;
 use bempic_store::{FileStore, ProgressStore, StateFlag, StoreError};
@@ -13,6 +14,19 @@ use bempic_sync::{
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
+
+/// Application-supplied authorization fact for a source in deterministic tests.
+///
+/// This is not production authentication. It models the specification rule
+/// that any application-authorized source holding the identical representation
+/// may provide a suffix.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AuthorizedSource {
+    /// Opaque application source identity.
+    pub source_id: [u8; 32],
+    /// Exact representation this source may provide.
+    pub representation_id: bempic_model::RepresentationId,
+}
 
 /// Exact, deterministic carrier parameters for one contact.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -64,6 +78,10 @@ pub struct CarrierEvent {
 /// Carrier-level counters kept separate from BEMPIC protocol counters.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CarrierMetrics {
+    /// Carrier byte precision label.
+    pub carrier_cost_precision: CostPrecision,
+    /// Link byte precision label; unavailable in this simulator.
+    pub link_cost_precision: CostPrecision,
     /// Complete BEMPIC record bytes submitted.
     pub submitted_bempic_bytes: u64,
     /// Submitted records including lost-at-disconnect records.
@@ -83,6 +101,16 @@ pub struct CarrierMetrics {
 impl CarrierMetrics {
     /// Merge another contact into a complete run.
     pub fn merge(&mut self, other: &Self) {
+        if self.carrier_cost_precision == CostPrecision::Unavailable {
+            self.carrier_cost_precision = other.carrier_cost_precision;
+        } else if self.carrier_cost_precision != other.carrier_cost_precision {
+            self.carrier_cost_precision = CostPrecision::Estimated;
+        }
+        if self.link_cost_precision == CostPrecision::Unavailable {
+            self.link_cost_precision = other.link_cost_precision;
+        } else if self.link_cost_precision != other.link_cost_precision {
+            self.link_cost_precision = CostPrecision::Estimated;
+        }
         self.submitted_bempic_bytes += other.submitted_bempic_bytes;
         self.submitted_records += other.submitted_records;
         self.delivered_records += other.delivered_records;
@@ -113,7 +141,10 @@ impl DeterministicCarrier {
             elapsed_ms: 0,
             disconnected: config.disconnect_after_ms == Some(0),
             events: Vec::new(),
-            metrics: CarrierMetrics::default(),
+            metrics: CarrierMetrics {
+                carrier_cost_precision: CostPrecision::Exact,
+                ..CarrierMetrics::default()
+            },
         })
     }
 
@@ -210,6 +241,10 @@ impl OpaqueRecordCarrier for DeterministicCarrier {
 
     fn elapsed_ms(&self) -> u64 {
         self.elapsed_ms
+    }
+
+    fn carrier_cost_precision(&self) -> CostPrecision {
+        CostPrecision::Exact
     }
 }
 
@@ -453,6 +488,19 @@ pub fn run_contact<S: ProgressStore>(
     Ok(report(config, before, store, accounting, &carrier))
 }
 
+/// Run a contact only after checking an application-supplied source authorization.
+pub fn run_authorized_contact<S: ProgressStore>(
+    representation: &PreparedRepresentation,
+    store: &mut S,
+    config: CarrierConfig,
+    source: AuthorizedSource,
+) -> Result<ContactReport, SimulationError> {
+    if source.representation_id != representation.id {
+        return Err(SimulationError::UnauthorizedSource);
+    }
+    run_contact(representation, store, config)
+}
+
 fn report<S: ProgressStore>(
     config: CarrierConfig,
     before: u64,
@@ -525,6 +573,9 @@ pub enum SimulationError {
     /// Offset could not be converted safely.
     #[error("representation length is unsupported")]
     Length,
+    /// Application-supplied source authorization did not cover the representation.
+    #[error("source is not authorized for this representation")]
+    UnauthorizedSource,
     /// Transfer did not finish in the bounded contact count.
     #[error("transfer did not finish in {0} contacts")]
     ContactLimit(usize),
@@ -673,5 +724,69 @@ mod tests {
             .all(|event| u16::try_from(event.record_bytes).is_ok()));
         assert_eq!(report.progress_after, u64::from(u16::MAX) - 29);
         assert!(!report.complete);
+    }
+
+    #[test]
+    fn resume_through_different_authorized_source_and_carrier() {
+        let root = tempdir().unwrap();
+        let representation = prepare_binary(vec![0x3c; 800]);
+        let first_source = AuthorizedSource {
+            source_id: [1; 32],
+            representation_id: representation.id,
+        };
+        let second_source = AuthorizedSource {
+            source_id: [2; 32],
+            representation_id: representation.id,
+        };
+        let first_progress = {
+            let mut store = FileStore::open(root.path(), representation.clone()).unwrap();
+            run_authorized_contact(
+                &representation,
+                &mut store,
+                contact(300, None),
+                first_source,
+            )
+            .unwrap()
+            .progress_after
+        };
+        assert!(first_progress > 0);
+
+        let mut alternate_carrier = contact(2_000, None);
+        alternate_carrier.bandwidth_bps = 19_200;
+        alternate_carrier.latency_ms = 75;
+        alternate_carrier.carrier_overhead_bytes = 11;
+        let mut reopened = FileStore::open(root.path(), representation.clone()).unwrap();
+        let report = run_authorized_contact(
+            &representation,
+            &mut reopened,
+            alternate_carrier,
+            second_source,
+        )
+        .unwrap();
+        assert!(report.progress_after > first_progress);
+        while !reopened.is_complete() {
+            run_authorized_contact(
+                &representation,
+                &mut reopened,
+                alternate_carrier,
+                second_source,
+            )
+            .unwrap();
+        }
+        assert_eq!(reopened.read_complete().unwrap(), representation.bytes);
+
+        let unauthorized = AuthorizedSource {
+            source_id: [3; 32],
+            representation_id: prepare_binary(b"other".to_vec()).id,
+        };
+        assert!(matches!(
+            run_authorized_contact(
+                &representation,
+                &mut reopened,
+                alternate_carrier,
+                unauthorized
+            ),
+            Err(SimulationError::UnauthorizedSource)
+        ));
     }
 }

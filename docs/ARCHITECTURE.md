@@ -23,6 +23,13 @@ It uses declarative input bounds, exposes a maximum encoded size, and reports
 exact encoded sizes before transfer. The `RepresentationCodec` trait allows
 other candidates without changing the application model or sync engine.
 
+The retained root-level `BMSG0`/`B0` profile exists for Python-oracle parity.
+The separate Rust `v01` modules implement the merged full-width semantic model
+and a second disposable record profile. They consume RFC 8785 descriptor
+fingerprints, including core revision 2 fingerprint
+`c4a686e7e9c6a40a5f187259a376b26cfc1d355179fd9fff487e105aeeac7302`.
+No codec ID is registered, and neither experimental profile is a wire standard.
+
 DCCL is prior art for those design properties only. This project has no DCCL
 dependency and does not use or claim compatibility with the DCCL wire format.
 
@@ -36,6 +43,13 @@ records previously bounded for the peer. v0.1.0 supports only monotonic
 narrowing; increasing the negotiated ceiling requires a future explicit
 renegotiation mechanism or a fresh synchronization state.
 
+Generation-0.1 compatibility state persists the entire selected
+protocol/schema/codec/security/extension tuple with an exact peer/profile
+identity and expiry. The two-slot copy-on-write protocol store also retains
+the prior checkpoint, target generation, accepted descriptors, page cursor,
+and receipt idempotency IDs; target digest mismatch never replaces the prior
+valid checkpoint.
+
 After reopening, a durable prefix whose length equals the representation size
 is verified and committed before data payload capacity is calculated. This
 covers an interruption after the final suffix was persisted but before commit,
@@ -47,3 +61,7 @@ SHA-256 in v0.1.0 binds identifiers and detects accidental/corrupt bytes. It is
 not authentication, confidentiality, authorization, replay protection, or a
 production cryptographic profile. Production security remains future
 specification work.
+
+`AuthorizedSource` in the simulator is only an application-supplied test fact
+used to prove source-change resume. It is not production authentication or an
+identity profile.

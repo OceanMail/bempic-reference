@@ -40,6 +40,24 @@ pub struct DeliveryOutcome {
     pub delivered_at_ms: Option<u64>,
 }
 
+/// Truthfulness label for lower-layer byte counters.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CostPrecision {
+    /// Binding reports measured or contractually exact octets.
+    Exact,
+    /// Binding reports a documented conservative estimate.
+    Estimated,
+    /// Lower layer did not expose this cost domain.
+    Unavailable,
+}
+
+impl Default for CostPrecision {
+    fn default() -> Self {
+        Self::Unavailable
+    }
+}
+
 /// Narrow interface implemented by deterministic simulation and future bindings.
 pub trait OpaqueRecordCarrier {
     /// Inspect the current complete-record opportunity.
@@ -52,6 +70,84 @@ pub trait OpaqueRecordCarrier {
     ) -> Result<DeliveryOutcome, CarrierError>;
     /// Elapsed deterministic time since the carrier/contact epoch.
     fn elapsed_ms(&self) -> u64;
+    /// Precision of carrier-byte counters returned by this binding.
+    fn carrier_cost_precision(&self) -> CostPrecision {
+        CostPrecision::Unavailable
+    }
+    /// Precision of link-byte counters, if any.
+    fn link_cost_precision(&self) -> CostPrecision {
+        CostPrecision::Unavailable
+    }
+}
+
+/// One record observed by the mock M4P application binding.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MockM4pRecord {
+    /// BEMPIC direction at the opaque application boundary.
+    pub direction: CarrierDirection,
+    /// Exact opaque bytes; the binding does not parse them.
+    pub bytes: Vec<u8>,
+}
+
+/// Mock M4P opaque-record adapter used only to prove the layer boundary.
+///
+/// The type intentionally contains no peer address, route, TTL, fragment,
+/// deduplication, custody, radio, or retransmission state. Those remain M4P or
+/// `DataLink` responsibilities.
+pub struct MockM4pBinding<C> {
+    inner: C,
+    records: Vec<MockM4pRecord>,
+}
+
+impl<C> MockM4pBinding<C> {
+    /// Wrap a complete-record carrier without changing its opportunity contract.
+    pub const fn new(inner: C) -> Self {
+        Self {
+            inner,
+            records: Vec::new(),
+        }
+    }
+
+    /// Opaque records admitted through the application binding.
+    pub fn records(&self) -> &[MockM4pRecord] {
+        &self.records
+    }
+
+    /// Recover the wrapped test carrier.
+    pub fn into_inner(self) -> C {
+        self.inner
+    }
+}
+
+impl<C: OpaqueRecordCarrier> OpaqueRecordCarrier for MockM4pBinding<C> {
+    fn opportunity(&self) -> Opportunity {
+        self.inner.opportunity()
+    }
+
+    fn transmit(
+        &mut self,
+        direction: CarrierDirection,
+        record: &[u8],
+    ) -> Result<DeliveryOutcome, CarrierError> {
+        let outcome = self.inner.transmit(direction, record)?;
+        self.records.push(MockM4pRecord {
+            direction,
+            bytes: record.to_vec(),
+        });
+        Ok(outcome)
+    }
+
+    fn elapsed_ms(&self) -> u64 {
+        self.inner.elapsed_ms()
+    }
+
+    fn carrier_cost_precision(&self) -> CostPrecision {
+        self.inner.carrier_cost_precision()
+    }
+
+    fn link_cost_precision(&self) -> CostPrecision {
+        self.inner.link_cost_precision()
+    }
 }
 
 /// Carrier rejected a record before transfer.
@@ -66,4 +162,56 @@ pub enum CarrierError {
     /// Carrier is no longer connected.
     #[error("carrier disconnected")]
     Disconnected,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct CompleteRecordTestCarrier;
+
+    impl OpaqueRecordCarrier for CompleteRecordTestCarrier {
+        fn opportunity(&self) -> Opportunity {
+            Opportunity {
+                max_record_bytes: 128,
+                remaining_bempic_bytes: 128,
+                reliable: true,
+            }
+        }
+
+        fn transmit(
+            &mut self,
+            _direction: CarrierDirection,
+            record: &[u8],
+        ) -> Result<DeliveryOutcome, CarrierError> {
+            Ok(DeliveryOutcome {
+                delivered: true,
+                bempic_bytes: record.len() as u64,
+                carrier_bytes: record.len() as u64 + 8,
+                delivered_at_ms: Some(1),
+            })
+        }
+
+        fn elapsed_ms(&self) -> u64 {
+            1
+        }
+
+        fn carrier_cost_precision(&self) -> CostPrecision {
+            CostPrecision::Exact
+        }
+    }
+
+    #[test]
+    fn mock_m4p_binding_preserves_one_complete_opaque_record() {
+        let mut binding = MockM4pBinding::new(CompleteRecordTestCarrier);
+        let bytes = b"opaque BEMPIC record";
+        let result = binding
+            .transmit(CarrierDirection::SenderToReceiver, bytes)
+            .unwrap();
+        assert!(result.delivered);
+        assert_eq!(binding.records().len(), 1);
+        assert_eq!(binding.records()[0].bytes, bytes);
+        assert_eq!(binding.carrier_cost_precision(), CostPrecision::Exact);
+        assert_eq!(binding.link_cost_precision(), CostPrecision::Unavailable);
+    }
 }

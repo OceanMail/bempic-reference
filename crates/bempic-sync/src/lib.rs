@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 //! Pure, replaceable synchronization operations for immutable representations.
 
+/// Protocol-generation 0.1 semantic model and disposable interoperability codec.
+pub mod v01;
+
 use bempic_model::{ContentDigest, PreparedRepresentation, RepresentationId, RepresentationKind};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
