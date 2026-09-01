@@ -28,14 +28,14 @@ Status meanings:
 | SEM-05 | pass | Python oracle tests and benchmark report zero unselected/deferred attachment payload. |
 | SEM-06 | pass | Equal checkpoint, known delta, and bounded unknown full fallback are implemented and tested. |
 | SEM-07 | pass | Two-slot protocol storage retains cursors and rejects target-digest mismatch. |
-| SEM-08 | partial | Explicit selection and offset types/invariants are encoded and independently decoded; not yet wired into the legacy transfer loop. |
+| SEM-08 | pass | Explicit selection and offset types/invariants are encoded, independently decoded, and enforced by the integrated full-width path. |
 | SEM-09 | pass | Matching overlap is idempotent; gaps and conflicting overlap fail closed. |
-| SEM-10 | partial | Atomic total/directional `BudgetScope` admission passes exact/one-below tests; v0.1 scope is not integrated end to end. |
-| SEM-11 | partial | Legacy BEMPIC directions and vector scope accounting are exact; complete v0.1 fixture/scoped counters and `semantic_bytes` remain absent. |
+| SEM-10 | pass | Atomic total/directional `BudgetScope` admission passes exact/one-below tests and is integrated before carrier submission. |
+| SEM-11 | pass | Every submitted full-width record is predicted, directionally counted, and reconciled to zero quote error. |
 | SEM-12 | pass | `CostPrecision` distinguishes exact, estimated, and unavailable lower-layer domains. |
 | SEM-13 | pass | Durable prefix matrix reopens at 0/1/10/50/90/final-byte positions. |
 | SEM-14 | pass | Resume through a second application-authorized source and changed carrier is tested. |
-| SEM-15 | partial | Full identity and digest verification, staged verification/commit, and deterministic decode exist separately; no single v0.1 integrated path. |
+| SEM-15 | pass | One full-width path verifies length, digest, ID, schema, and opaque deterministic decode before atomic commit. |
 | SEM-16 | pass | Receipt emission is after commit; post-commit/pre-receipt reopen is tested. |
 | SEM-17 | partial | Four receipt meanings and idempotency IDs exist; application-profile state integration is absent. |
 | SEM-18 | pass | Highest identical generation and preference-sum schema/codec selection with deterministic tie-breaks is tested. |
@@ -55,7 +55,7 @@ Status meanings:
 | CODEC-04 | pass | All seven operations use complete length-delimited experimental records. |
 | CODEC-05 | pass | Per-operation conservative maxima and schema limits are declared. |
 | CODEC-06 | pass | Exact arithmetic sizing agrees with serialization over 4,100 generated payload sizes. |
-| CODEC-07 | partial | Conservative maxima cover tested concrete records; no generated exhaustive worst-case proof artifact. |
+| CODEC-07 | pass | Arithmetic proof terms and exact valid maximum-size witnesses cover all seven disposable experimental operations. |
 | CODEC-08 | pass | Encoding is deterministic; fixed-width scalars, booleans, lengths, tags, and trailing bytes decode strictly. |
 | CODEC-09 | pass | Optional/critical extension behavior is executable. |
 | CODEC-10 | partial | Reader checks counts/lengths before allocation; exhaustive one-past/nesting vectors are absent. |
@@ -72,20 +72,20 @@ Status meanings:
 | PERSIST-04 | pass | Verified staging state reopens and commits without payload. |
 | PERSIST-05 | pass | Committed state reopens before receipt without false or lost commit. |
 | PERSIST-06 | pass | Required receiver percentages and final byte are deterministic tests. |
-| PERSIST-07 | partial | Receiver restart is exhaustive; explicit sender-only and both-process traces remain absent. |
+| PERSIST-07 | pass | Sender-only, receiver-only, and simultaneous process restarts retain one monotonic durable prefix. |
 | PERSIST-08 | pass | A changed authorized source and changed carrier resume identical bytes. |
 
 ## Accounting cases
 
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
-| ACCOUNT-01 | partial | Fixture totals, directions, payload/useful/duplicate/carrier values exist; Rust lacks all required per-fixture semantic/link dimensions. |
+| ACCOUNT-01 | partial | The full-width artifact has directional BEMPIC/carrier, payload/useful/duplicate, and labeled unavailable link cost; normative `semantic_bytes` and a full-width manifest corpus remain absent. |
 | ACCOUNT-02 | pass | Python quote error is zero and Rust exact-size properties agree. |
-| ACCOUNT-03 | partial | Total and directional atomic admission is tested; directional v0.1 simulator integration is missing. |
+| ACCOUNT-03 | pass | Total and directional admission is atomic and integrated into full-width carrier submission. |
 | ACCOUNT-04 | pass | Unselected payload is zero. |
-| ACCOUNT-05 | fail | Useful bytes to first body is not measured. |
-| ACCOUNT-06 | partial | Operation/control totals exist, but there is no dedicated v0.1 resume-control artifact. |
-| ACCOUNT-07 | fail | Persistent resume is measured; full restart comparison is not implemented. |
+| ACCOUNT-05 | pass | First body DATA begins after 747 BEMPIC/787 carrier octets and carries 460 useful payload octets. |
+| ACCOUNT-06 | pass | The tranche-2 artifact records per-operation and protocol-overhead resume-control cost. |
+| ACCOUNT-07 | pass | Persistent resume saves 401 payload octets and 1,082 carrier octets against deterministic full restart. |
 
 ## `bempic-reference` release gates
 
@@ -96,15 +96,15 @@ Status meanings:
 | REF-03 | pass | Seven operations and compatibility/collection/receiver/sender transition checks exist. |
 | REF-04 | pass | RFC 8785 fingerprints, full IDs, content digest, preparation, validation, and opaque reconstruction pass. |
 | REF-05 | pass | Append checkpoints, delta/full reconciliation, and durable cursors pass. |
-| REF-06 | partial | Budgets/preflight/legacy counters exist but are not one integrated v0.1 path. |
-| REF-07 | partial | Crash/reopen/source/corruption/idempotency evidence is substantial; sender/both and storage-fault matrix incomplete. |
+| REF-06 | pass | Hard total/directional budgets, exact preflight, and accounting are one integrated v0.1 path. |
+| REF-07 | pass | Full-width crash/reopen, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
 | REF-08 | partial | Negotiation core works; every incompatibility/stale-cache trace is not bundled. |
-| REF-09 | blocked | No approved experimental codec registry allocation or complete profile proof. |
+| REF-09 | blocked | Exact experimental maxima are proven, but no approved codec registry allocation or profile exists. |
 | REF-10 | pass | Tool/version/duration/corpus digest and zero findings are published in `conformance/fuzz-report.json`. |
-| REF-11 | fail | Mandatory vector bundle catalog is incomplete. |
+| REF-11 | fail | V01–V15 now have a machine-readable evidence/pending inventory, but the mandatory byte/state bundle remains incomplete. |
 | REF-12 | partial | Independent verifier covers only the incomplete published bundle. |
 | REF-13 | partial | Oracle and differential tests pass; no maintainer-accepted parity disposition exists. |
-| REF-14 | blocked | Raw/MIME/candidate/interruption figures exist; legal B2F oracle and full-restart measurement do not. |
+| REF-14 | blocked | Raw/MIME/candidate/interruption/persistence/full-restart figures exist; a legal B2F oracle does not. |
 | REF-15 | pass | Deferred payload, total budgets, durable final prefix, and deterministic quote tests pass. |
 | REF-16 | pass | Opaque trait and one-record mock M4P adapter are tested. |
 | REF-17 | blocked | Requires immutable final commit, green CI, and specification-release-PR coordination. |
@@ -116,22 +116,24 @@ Status meanings:
 | ACCEPT-01 | fail | Not all correctness checklist items pass. |
 | ACCEPT-02 | fail | Measured v0.1 experimental profile: warm 88 B (limit 64), cold 292 B (limit 128). |
 | ACCEPT-03 | pass | Known checkpoint sends only sequences after the retained generation; old entries are not offered. |
-| ACCEPT-04 | partial | Exact sizes/budget admission pass, but not for an integrated v0.1 fixture run. |
+| ACCEPT-04 | pass | Integrated preflight predicts every submitted record exactly and no total or directional budget is crossed. |
 | ACCEPT-05 | pass | No unselected attachment payload. |
 | ACCEPT-06 | pass | Fully durable final prefix is not resent; duplicate bytes are counted. |
-| ACCEPT-07 | partial | Required validations exist separately, not in one v0.1 commit path. |
+| ACCEPT-07 | pass | The integrated path validates length/digest/ID/schema/decode before commit and positive receipt. |
 | ACCEPT-08 | blocked | No approved legally compatible B2F/LZHUF oracle; no result is fabricated. |
 | ACCEPT-09 | blocked | Mock boundary exists; external M4P maintainer/reviewer confirmation is still required. |
 
 ## Published measurements and vectors
 
-- Conformance measurement artifact:
-  [`benchmarks/results/conformance-2026-08-31.json`](../benchmarks/results/conformance-2026-08-31.json).
+- Tranche-2 integrated measurement artifact:
+  [`benchmarks/results/conformance-tranche-2-2026-09-01.json`](../benchmarks/results/conformance-tranche-2-2026-09-01.json).
 - Malformed/property report:
   [`conformance/fuzz-report.json`](../conformance/fuzz-report.json).
 - Incomplete experimental v0.1 bundle:
   [`test-vectors/v0.1-experimental/manifest.json`](../test-vectors/v0.1-experimental/manifest.json),
-  digest `bd0b5e67c0ffed3de71d2f411b4a5024e0267b5ec1787310ec3f4293ae785aa4`.
+  digest `2411074bd16b6c3a4073849d6ceae730f0e06e288ed58816a60b1839d6317fb0`.
+- V01–V15 inventory and specification questions:
+  [`test-vectors/v0.1-experimental/catalog.json`](../test-vectors/v0.1-experimental/catalog.json).
 - Independent verifier: [`scripts/verify_conformance.py`](../scripts/verify_conformance.py).
 
 The B2F/LZHUF row is a genuine release blocker. No incompatibly licensed code
