@@ -1,0 +1,1 @@
+{"bounds":{"decoded_octets":1073741824},"canonical_value":"the exact byte string without transformation","name":"bempic.opaque-binary","protocol":"0.1","revision":1,"type":{"max_octets":1073741824,"type":"octets"}}

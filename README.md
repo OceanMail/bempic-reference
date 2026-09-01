@@ -1,32 +1,79 @@
-# BEMPIC Reference Implementation
+# BEMPIC Reference v0.1.0 candidate
 
-This repository is reserved for the open BEMPIC reference implementation, interoperability fixtures, test vectors, and conformance tooling.
+BEMPIC is an experimental, deterministic application-synchronization layer for
+messaging over severely constrained and intermittently connected carriers.
+This repository contains the Apache-2.0 reference implementation, simulator,
+fixtures, and cross-language vectors.
 
-## Status
+> **Conformance status:** not v0.1.0 conformant and not release-ready. The
+> requirement-by-requirement evidence under `conformance/` is authoritative.
+> The implementation targets specification commit
+> `c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401`, but mandatory codec, vector,
+> performance, B2F, interruption, and external M4P-review gates remain open.
 
-**Pre-implementation.** No wire format has been frozen and production code should not begin until the protocol repository establishes enough normative behavior to test.
+> **No stable wire format:** every encoding in v0.1.0 is an experimental
+> measurement candidate. The markers, field widths, hashes, record kinds, and
+> schema fingerprints may change incompatibly before a wire generation is
+> selected by the specification project.
 
-## Purpose
-
-The reference implementation exists to prove that the public BEMPIC specification is independently implementable. It must not depend on proprietary OceanMail services or source code.
-
-Planned contents:
+## Architectural boundary
 
 ```text
-/reference-client
-/reference-server
-/test-vectors
-/conformance
-/simulator
-/examples
+OceanMail       application normalization, policy, UI, service integration
+    ↓
+BEMPIC          compact representations, sync, budgets, resume, receipts
+    ↓
+M4P             routing, store-carry-forward, TTL, generic fragmentation
+    ↓
+DataLink        link/modem reliability, FEC, ARQ, physical-byte accounting
 ```
 
-The simulator should be developed early so protocol choices can be compared using real byte counts, latency, interruption, corruption/loss, and resume behavior.
+BEMPIC does not implement radios, modem protocols, M4P, Mailcow, billing,
+production authentication, or production cryptography. Its v0.1.0 SHA-256
+digests provide deterministic identity and corruption detection only.
 
-## Licensing
+## Workspace
 
-The intended direction is a permissive open-source license suitable for broad independent and commercial implementation, but no license is adopted until an explicit LICENSE file is committed.
+- `bempic-model`: bounded messages, parts, identifiers, prepared bytes.
+- `bempic-codec`: pluggable experimental codecs, fingerprints, exact bounds.
+- `bempic-sync`: offers, requests, data operations, receipts, accounting.
+- `bempic-store`: crash-conscious file persistence and exact reconstruction.
+- `bempic-carrier`: minimal opaque-record carrier contract.
+- `bempic-sim`: deterministic budgets, bandwidth, latency, disconnects, time.
+- `bempic-cli`: inspect, demo, interrupt/reopen/resume, and vector commands.
+- `bempic-bench`: deterministic fixture and carrier measurements.
+- `bempic-conformance`: deterministic malformed-input/property runner and
+  v0.1 acceptance measurements.
+- `prototype`: the original standard-library Python behavioral oracle.
 
-## Source of truth
+Generation-0.1 semantic types live in `bempic_model::v01`,
+`bempic_sync::v01`, and `bempic_store::v01`. Root-level `BMSG0`/`B0` types are
+retained only for prototype parity and review-regression coverage.
 
-Protocol semantics belong in the `Gordonfive/bempic` specification repository. This repository implements and tests them; it does not define proprietary extensions by accident.
+## Run
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
+cargo run -p bempic-conformance --release
+cargo run -p bempic-cli -- demo
+cargo run -p bempic-bench --release
+python -m pip install --require-hashes -r requirements-conformance.txt
+python scripts/verify_conformance.py
+python -m unittest prototype.tests.test_proof -v
+python -m prototype.demo
+python -m prototype.benchmark
+```
+
+The committed files under `test-vectors/experimental-v0/` are differential
+vectors shared by Rust and Python. They are experimental fixtures, not a
+compatibility promise.
+
+`test-vectors/v0.1-experimental/` uses the merged specification's bundle
+contract and an independent Python verifier. Its manifest explicitly marks the
+mandatory catalog incomplete; it is evidence, not a conformance claim.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).

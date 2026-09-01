@@ -1,0 +1,19 @@
+[package]
+name = "bempic-conformance"
+description = "Deterministic malformed-input and property runner for BEMPIC"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bempic-model.workspace = true
+bempic-sync.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,91 @@
+{
+  "schema": "bempic-reference-benchmark-v0",
+  "version": "0.1.0",
+  "normative_wire_format": false,
+  "fixture_count": 6,
+  "total_representation_bytes": 23334,
+  "total_bempic_bytes": 25510,
+  "total_carrier_bytes": 26022,
+  "total_elapsed_ms": 37718,
+  "fixtures": [
+    {
+      "name": "tiny_plain",
+      "manifest_representation_bytes": 121,
+      "attachment_representation_bytes": 0,
+      "metadata_attachment_payload_bytes": 0,
+      "selected_attachment_payload_bytes": 0,
+      "full_exchange_bytes": 362,
+      "carrier_bytes": 418,
+      "contacts": 1,
+      "elapsed_ms": 2102,
+      "duplicate_payload_bytes": 0,
+      "exact_reconstruction": true
+    },
+    {
+      "name": "typical_plain",
+      "manifest_representation_bytes": 1436,
+      "attachment_representation_bytes": 0,
+      "metadata_attachment_payload_bytes": 0,
+      "selected_attachment_payload_bytes": 0,
+      "full_exchange_bytes": 1677,
+      "carrier_bytes": 1733,
+      "contacts": 1,
+      "elapsed_ms": 3198,
+      "duplicate_payload_bytes": 0,
+      "exact_reconstruction": true
+    },
+    {
+      "name": "international_text",
+      "manifest_representation_bytes": 862,
+      "attachment_representation_bytes": 0,
+      "metadata_attachment_payload_bytes": 0,
+      "selected_attachment_payload_bytes": 0,
+      "full_exchange_bytes": 1103,
+      "carrier_bytes": 1159,
+      "contacts": 1,
+      "elapsed_ms": 2720,
+      "duplicate_payload_bytes": 0,
+      "exact_reconstruction": true
+    },
+    {
+      "name": "reply_chain",
+      "manifest_representation_bytes": 996,
+      "attachment_representation_bytes": 0,
+      "metadata_attachment_payload_bytes": 0,
+      "selected_attachment_payload_bytes": 0,
+      "full_exchange_bytes": 1237,
+      "carrier_bytes": 1293,
+      "contacts": 1,
+      "elapsed_ms": 2831,
+      "duplicate_payload_bytes": 0,
+      "exact_reconstruction": true
+    },
+    {
+      "name": "compressible_attachment",
+      "manifest_representation_bytes": 228,
+      "attachment_representation_bytes": 9200,
+      "metadata_attachment_payload_bytes": 0,
+      "selected_attachment_payload_bytes": 9200,
+      "full_exchange_bytes": 10034,
+      "carrier_bytes": 10178,
+      "contacts": 4,
+      "elapsed_ms": 12991,
+      "duplicate_payload_bytes": 0,
+      "exact_reconstruction": true
+    },
+    {
+      "name": "already_compressed_attachment",
+      "manifest_representation_bytes": 251,
+      "attachment_representation_bytes": 10240,
+      "metadata_attachment_payload_bytes": 0,
+      "selected_attachment_payload_bytes": 10240,
+      "full_exchange_bytes": 11097,
+      "carrier_bytes": 11241,
+      "contacts": 4,
+      "elapsed_ms": 13876,
+      "duplicate_payload_bytes": 0,
+      "exact_reconstruction": true
+    }
+  ]
+}
+

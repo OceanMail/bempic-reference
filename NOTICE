@@ -1,0 +1,12 @@
+BEMPIC Reference
+Copyright 2026 Gordonfive and BEMPIC contributors
+
+This product includes executable BEMPIC reference behavior, experimental
+codec profiles, deterministic simulation, conformance material, and a retained
+transitional Python behavioral oracle.
+
+RFC 8785 verification uses rfc8785.py by Trail of Bits under Apache-2.0.
+Source: https://github.com/trailofbits/rfc8785.py
+
+Third-party Rust dependency versions and license identifiers are recorded in
+THIRD-PARTY-NOTICES.md and pinned by Cargo.lock.

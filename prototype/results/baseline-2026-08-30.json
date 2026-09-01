@@ -1,0 +1,172 @@
+{
+  "b2f_baseline": "not yet integrated",
+  "collection_summary": {
+    "cold_no_change_bytes": 76,
+    "cold_no_change_equal": true,
+    "warm_changed_bytes": 58,
+    "warm_changed_equal": false,
+    "warm_no_change_bytes": 58,
+    "warm_no_change_equal": true
+  },
+  "fixture_count": 6,
+  "fixtures": [
+    {
+      "all_representation_bytes": 130,
+      "attachment_representation_bytes": 0,
+      "compression_candidate_bytes": {
+        "deflate_raw": 104,
+        "gzip": 122,
+        "uncompressed": 130,
+        "zlib": 110
+      },
+      "full_exchange_bytes": 355,
+      "full_exchange_contacts": 1,
+      "full_exchange_duplicate_payload_bytes": 0,
+      "full_exchange_predicted_bytes": 355,
+      "full_exchange_prediction_error_bytes": 0,
+      "manifest_representation_bytes": 130,
+      "metadata_attachment_payload_bytes": 0,
+      "metadata_only_exchange_bytes": 355,
+      "name": "tiny_plain",
+      "rfc5322_mime_bytes": 321,
+      "selected_attachment_payload_bytes": 0
+    },
+    {
+      "all_representation_bytes": 1172,
+      "attachment_representation_bytes": 0,
+      "compression_candidate_bytes": {
+        "deflate_raw": 204,
+        "gzip": 222,
+        "uncompressed": 1172,
+        "zlib": 210
+      },
+      "full_exchange_bytes": 1397,
+      "full_exchange_contacts": 1,
+      "full_exchange_duplicate_payload_bytes": 0,
+      "full_exchange_predicted_bytes": 1397,
+      "full_exchange_prediction_error_bytes": 0,
+      "manifest_representation_bytes": 1172,
+      "metadata_attachment_payload_bytes": 0,
+      "metadata_only_exchange_bytes": 1397,
+      "name": "typical_plain",
+      "rfc5322_mime_bytes": 1416,
+      "selected_attachment_payload_bytes": 0
+    },
+    {
+      "all_representation_bytes": 796,
+      "attachment_representation_bytes": 0,
+      "compression_candidate_bytes": {
+        "deflate_raw": 205,
+        "gzip": 223,
+        "uncompressed": 796,
+        "zlib": 211
+      },
+      "full_exchange_bytes": 1021,
+      "full_exchange_contacts": 1,
+      "full_exchange_duplicate_payload_bytes": 0,
+      "full_exchange_predicted_bytes": 1021,
+      "full_exchange_prediction_error_bytes": 0,
+      "manifest_representation_bytes": 796,
+      "metadata_attachment_payload_bytes": 0,
+      "metadata_only_exchange_bytes": 1021,
+      "name": "international_text",
+      "rfc5322_mime_bytes": 1275,
+      "selected_attachment_payload_bytes": 0
+    },
+    {
+      "all_representation_bytes": 1160,
+      "attachment_representation_bytes": 0,
+      "compression_candidate_bytes": {
+        "deflate_raw": 209,
+        "gzip": 227,
+        "uncompressed": 1160,
+        "zlib": 215
+      },
+      "full_exchange_bytes": 1385,
+      "full_exchange_contacts": 1,
+      "full_exchange_duplicate_payload_bytes": 0,
+      "full_exchange_predicted_bytes": 1385,
+      "full_exchange_prediction_error_bytes": 0,
+      "manifest_representation_bytes": 1160,
+      "metadata_attachment_payload_bytes": 0,
+      "metadata_only_exchange_bytes": 1385,
+      "name": "reply_chain",
+      "rfc5322_mime_bytes": 1381,
+      "selected_attachment_payload_bytes": 0
+    },
+    {
+      "all_representation_bytes": 9157,
+      "attachment_representation_bytes": 8914,
+      "compression_candidate_bytes": {
+        "deflate_raw": 315,
+        "gzip": 351,
+        "uncompressed": 9157,
+        "zlib": 327
+      },
+      "full_exchange_bytes": 9731,
+      "full_exchange_contacts": 4,
+      "full_exchange_duplicate_payload_bytes": 0,
+      "full_exchange_predicted_bytes": 9731,
+      "full_exchange_prediction_error_bytes": 0,
+      "manifest_representation_bytes": 243,
+      "metadata_attachment_payload_bytes": 0,
+      "metadata_only_exchange_bytes": 468,
+      "name": "compressible_attachment",
+      "rfc5322_mime_bytes": 12900,
+      "selected_attachment_payload_bytes": 8914
+    },
+    {
+      "all_representation_bytes": 10521,
+      "attachment_representation_bytes": 10263,
+      "compression_candidate_bytes": {
+        "deflate_raw": 10479,
+        "gzip": 10515,
+        "uncompressed": 10521,
+        "zlib": 10491
+      },
+      "full_exchange_bytes": 11095,
+      "full_exchange_contacts": 4,
+      "full_exchange_duplicate_payload_bytes": 0,
+      "full_exchange_predicted_bytes": 11095,
+      "full_exchange_prediction_error_bytes": 0,
+      "manifest_representation_bytes": 258,
+      "metadata_attachment_payload_bytes": 0,
+      "metadata_only_exchange_bytes": 483,
+      "name": "already_compressed_attachment",
+      "rfc5322_mime_bytes": 14759,
+      "selected_attachment_payload_bytes": 10263
+    }
+  ],
+  "incremental_discovery": {
+    "available_representation_count": 8,
+    "complete": true,
+    "known_representation_count": 7,
+    "offer_bytes": 62,
+    "offered_representation_count": 1,
+    "summary_bytes": 58,
+    "total_bytes": 120
+  },
+  "notes": [
+    "All formats and byte assignments are experimental.",
+    "Compression sizes include each representation independently but not protocol negotiation.",
+    "Full exchange counts CAPABILITIES, SUMMARY, OFFER, REQUEST, DATA, and RESULT records.",
+    "Each representation currently pays a separate cold exchange; cross-representation capability reuse is not implemented.",
+    "Attachment metadata exchange sends zero attachment content bytes before selection.",
+    "Discovery pagination uses local harness state, not a wire cursor."
+  ],
+  "python": "3.12.13",
+  "schema": "bempic-proof-benchmark-0",
+  "totals": {
+    "compression_candidate_bytes": {
+      "deflate_raw": 11516,
+      "gzip": 11660,
+      "uncompressed": 22936,
+      "zlib": 11564
+    },
+    "full_exchange_bytes": 24984,
+    "full_exchange_predicted_bytes": 24984,
+    "full_exchange_prediction_error_bytes": 0,
+    "rfc5322_mime_bytes": 32052
+  }
+}
+

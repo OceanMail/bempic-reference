@@ -1,0 +1,64 @@
+{
+  "b2f_lzhuf": {
+    "reason": "No legally compatible, versioned B2F/LZHUF oracle and required notice set has been selected by specification governance. No source was imported or vendored.",
+    "status": "blocked-release-gate"
+  },
+  "candidate_rust_codec": {
+    "exact_reconstruction_all_fixtures": true,
+    "fixture_count": 6,
+    "generation": "transitional-BMSG0",
+    "total_bempic_bytes": 25510,
+    "total_carrier_bytes": 26022,
+    "total_representation_bytes": 23334
+  },
+  "input_digests": {
+    "cargo_lock_sha256": "9de417f10b3cae08f18a492ba049b87e5f96b1a7b587e2c43919b77f5ff740ba",
+    "fixture_corpus_sha256": "19f1e84297fadb3b0eff181f837fc632227608f7458024e13cf8f8eb1d492b1b",
+    "python_baseline_sha256": "3bace0938ebd472966dd4673b591e2200b58c31686beee38da251c5070a56148",
+    "rust_baseline_sha256": "806dc38b51f047d6f504dafdc2ade3a23c0e2e832ef95ddb66dfd1f022141f7e"
+  },
+  "interruption_and_persistence": {
+    "duplicate_payload_bytes": 0,
+    "full_restart_comparison": {
+      "reason": "A reproducible full-restart-versus-persistent v0.1 fixture report is not yet implemented.",
+      "status": "blocked-release-gate"
+    },
+    "generation": "transitional-B0",
+    "persistent_resume_bempic_bytes": 1046,
+    "persistent_resume_carrier_bytes": 1166,
+    "persistent_resume_contacts": 8,
+    "persistent_resume_reopens": 7,
+    "representation_bytes": 338
+  },
+  "python_oracle": {
+    "compression_candidate_bytes": {
+      "deflate_raw": 11516,
+      "gzip": 11660,
+      "uncompressed": 22936,
+      "zlib": 11564
+    },
+    "fixture_count": 6,
+    "full_exchange_actual_bytes": 24984,
+    "full_exchange_predicted_bytes": 24984,
+    "prediction_error_bytes": 0,
+    "rfc5322_mime_bytes": 32052
+  },
+  "reproduction_commands": [
+    "python -m prototype.benchmark",
+    "cargo run -q -p bempic-bench --release",
+    "cargo run -q -p bempic-cli -- demo",
+    "cargo run -q -p bempic-conformance --release -- measurements"
+  ],
+  "schema": "bempic-reference-conformance-measurements-v0.1",
+  "specification_commit": "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401",
+  "v01_experimental_codec": {
+    "capability_operation_octets": 102,
+    "codec_status": "experimental-unregistered",
+    "cold_no_change_gate_maximum_octets": 128,
+    "cold_no_change_gate_pass": false,
+    "cold_no_change_octets": 292,
+    "warm_no_change_gate_maximum_octets": 64,
+    "warm_no_change_gate_pass": false,
+    "warm_no_change_octets": 88
+  }
+}

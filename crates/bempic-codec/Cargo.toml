@@ -1,0 +1,24 @@
+[package]
+name = "bempic-codec"
+description = "Pluggable experimental codecs and exact size analysis for BEMPIC"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bempic-model.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[[test]]
+name = "cross_language"
+path = "tests/cross_language.rs"
+

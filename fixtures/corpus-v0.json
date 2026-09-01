@@ -1,0 +1,38 @@
+{
+  "schema": "bempic-synthetic-corpus-v0",
+  "redistributable": true,
+  "contains_private_data": false,
+  "fixtures": [
+    {
+      "name": "tiny_plain",
+      "purpose": "small one-recipient UTF-8 message fixed-overhead measurement",
+      "attachments": []
+    },
+    {
+      "name": "typical_plain",
+      "purpose": "approximately one KiB repetitive operational message",
+      "attachments": []
+    },
+    {
+      "name": "international_text",
+      "purpose": "multi-byte UTF-8 subject and body",
+      "attachments": []
+    },
+    {
+      "name": "reply_chain",
+      "purpose": "repeated quoted text and signatures",
+      "attachments": []
+    },
+    {
+      "name": "compressible_attachment",
+      "purpose": "metadata-only then selected compressible attachment",
+      "attachments": ["route.csv"]
+    },
+    {
+      "name": "already_compressed_attachment",
+      "purpose": "metadata-only then selected deterministic high-entropy attachment",
+      "attachments": ["sensor.bin"]
+    }
+  ]
+}
+

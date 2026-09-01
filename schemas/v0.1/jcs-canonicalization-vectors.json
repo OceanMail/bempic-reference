@@ -1,0 +1,13 @@
+{
+  "invalid": [
+    {"json": "{\"a\":1,\"a\":2}", "name": "duplicate object member"},
+    {"json": "{\"number\":NaN}", "name": "non-JSON number"},
+    {"json": "{\"string\":\"\\udead\"}", "name": "lone Unicode surrogate"}
+  ],
+  "source": "RFC 8785 Sections 3.1, 3.2.2, 3.2.3, and Appendix B",
+  "valid": [
+    {"canonical": "{\"number\":1e-7}", "name": "ECMAScript exponent formatting regression", "value": {"number": 1e-7}},
+    {"canonical": "[0,0,1e-7,0.000001,100000000000000000000,1e+21,333333333.3333333]", "name": "RFC 8785 number serialization boundaries", "value": [0.0, -0.0, 1e-7, 1e-6, 1e20, 1e21, 333333333.33333329]},
+    {"canonical": "{\"\\r\":\"Carriage Return\",\"1\":\"One\",\"\":\"Control\",\"ö\":\"Latin Small Letter O With Diaeresis\",\"€\":\"Euro Sign\",\"😀\":\"Emoji: Grinning Face\",\"דּ\":\"Hebrew Letter Dalet With Dagesh\"}", "name": "RFC 8785 UTF-16 property ordering", "value": {"\r": "Carriage Return", "1": "One", "": "Control", "ö": "Latin Small Letter O With Diaeresis", "€": "Euro Sign", "😀": "Emoji: Grinning Face", "דּ": "Hebrew Letter Dalet With Dagesh"}}
+  ]
+}
