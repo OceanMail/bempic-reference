@@ -78,6 +78,18 @@ and persistent-resume versus full-restart cost. Maximum-size analyses are
 arithmetic proofs for the disposable B1 implementation only; every declared
 maximum has a valid encoded witness in tests, but none is an approved codec.
 
+The private-use compact revision-2 candidate adds a strict, length-delimited
+outer image and two lossless aliases. Its static capability alias restores the
+exact full profile fields. Its warm-summary alias is valid only with the exact
+durable peer/collection checkpoint supplied as explicit codec context; absent,
+stale, or mismatched context fails before an operation is returned. Cold
+summaries still carry the full 32-octet collection ID and digest. This is
+application-state compression, not M4P state, and it changes no persistence or
+receipt semantics. The candidate is documented in
+[`EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](EXPERIMENTAL-COMPACT-CODEC-v0.1.md) and
+remains nonconformant until the specification project reviews the alias model
+and performs an experimental allocation.
+
 ## Security boundary
 
 SHA-256 in v0.1.0 binds identifiers and detects accidental/corrupt bytes. It is

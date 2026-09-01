@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "2411074bd16b6c3a4073849d6ceae730f0e06e288ed58816a60b1839d6317fb0",
+  "bundle_digest": "bd6e693d890a0359ff74821294a8cb2e3f628291cd084d844b831491aac92a9e",
   "bundle_format_version": "0.1",
   "codec": {
     "canonical_parameters_hex": "",
@@ -11,9 +11,9 @@
   "extensions": [],
   "files": [
     {
-      "length": 7286,
+      "length": 7481,
       "path": "catalog.json",
-      "sha256": "f189b944c98781e079295a677fc7a4a204069c230b6d6d319a75e91830f7b4cf"
+      "sha256": "e07ba66d5ee45ce410839206884aa36e5cb4af5a4502de650f22654685d68778"
     },
     {
       "length": 2390,

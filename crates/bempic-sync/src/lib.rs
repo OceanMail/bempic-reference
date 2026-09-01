@@ -3,6 +3,8 @@
 
 /// Protocol-generation 0.1 semantic model and disposable interoperability codec.
 pub mod v01;
+/// Private-use compact codec candidate for protocol-generation 0.1 evidence.
+pub mod v01_compact;
 
 use bempic_model::{ContentDigest, PreparedRepresentation, RepresentationId, RepresentationKind};
 use serde::{Deserialize, Serialize};

@@ -1,0 +1,189 @@
+{
+  "format": "bempic-private-compact-candidate-vectors-v1",
+  "status": "experimental-private-use-nonconformant",
+  "specification_commit": "40da35bd150290d039a185fb95388422ede5f1d1",
+  "codec": {
+    "canonical_parameters_hex": "",
+    "id": 4294901761,
+    "profile": "docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md",
+    "profile_sha256": "0633ed81272a89d085ceb8ae01aef82ac1749a9babe2fac9b59d0d1f3529fce8",
+    "registry_allocation": null,
+    "revision": 2,
+    "status": "implementation-local-private-use-nonconformant"
+  },
+  "evidence_artifact": {
+    "path": "benchmarks/results/compact-codec-evidence-2026-09-01.json",
+    "sha256": "fd3461c674921b9730c773f0eef01d34dcc8e60a472ca1bb2ec1f3027de2f525"
+  },
+  "prescribed_v01_fixture": {
+    "collection_digest": "59eba0187ec356001774903e47223951505547231e2c0d894cb802a5a00a3ca9",
+    "collection_id": "563e72099a54583cca1df3c8417e5295c985ce49f7670d37ea2bdd008cdafcae",
+    "first_index": 0,
+    "generation": 100,
+    "item_count": 100,
+    "last_index": 99,
+    "messages": 100,
+    "object_id_rule": "SHA-256(BEMPIC-V01-OBJECT\\0 || U32(index))"
+  },
+  "vectors": [
+    {
+      "encoded_hex": "b10101",
+      "encoded_length": 3,
+      "kind": "valid",
+      "name": "profile-capabilities"
+    },
+    {
+      "encoded_hex": "b24301563e72099a54583cca1df3c8417e5295c985ce49f7670d37ea2bdd008cdafcae646459eba0187ec356001774903e47223951505547231e2c0d894cb802a5a00a3ca9",
+      "encoded_length": 69,
+      "kind": "valid-boundary",
+      "name": "cold-full-summary-100"
+    },
+    {
+      "encoded_hex": "b22102d74b42862b315d55f0099384e457ca13687c1e4a88e6ec646f069cc46a047d51",
+      "encoded_length": 35,
+      "kind": "valid-boundary",
+      "name": "warm-cached-summary-100",
+      "requires_exact_cached_summary": true
+    },
+    {
+      "expected_error": "truncated",
+      "input_hex": "b101",
+      "kind": "invalid-truncated",
+      "name": "truncated-capabilities"
+    },
+    {
+      "expected_error": "compact envelope length",
+      "input_hex": "b10201",
+      "kind": "invalid-malformed",
+      "name": "false-envelope-length"
+    },
+    {
+      "expected_error": "non-canonical varint",
+      "input_hex": "b1810001",
+      "kind": "invalid-noncanonical",
+      "name": "overlong-body-length-varint"
+    },
+    {
+      "expected_error": "cached summary context",
+      "input_hex": "b22102d74b42862b315d55f0099384e457ca13687c1e4a88e6ec646f069cc46a047d51",
+      "kind": "invalid-context",
+      "name": "cached-summary-without-context"
+    },
+    {
+      "expected_error": "cached summary binding",
+      "input_hex": "b22102d74b42862b315d55f0099384e457ca13687c1e4a88e6ec646f069cc46a047d50",
+      "kind": "invalid-context",
+      "name": "cached-summary-binding-mismatch",
+      "requires_exact_cached_summary": true
+    },
+    {
+      "expected_error": "non-canonical full cached summary",
+      "input_hex": "b24301563e72099a54583cca1df3c8417e5295c985ce49f7670d37ea2bdd008cdafcae646459eba0187ec356001774903e47223951505547231e2c0d894cb802a5a00a3ca9",
+      "kind": "invalid-noncanonical",
+      "name": "full-summary-when-cache-matches"
+    },
+    {
+      "expected_error": "compact operation size before body allocation",
+      "kind": "invalid-one-past",
+      "name": "one-past-outer-maximum",
+      "symbolic_octets": 1048577
+    }
+  ],
+  "maximum_witnesses": [
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 34355,
+        "kind": "CAPABILITIES",
+        "maximum_encoded_octets": 34360
+      },
+      "encoded_length": 34360,
+      "kind": "CAPABILITIES",
+      "legacy_encoded_length": 34362,
+      "sha256": "05c50c481fb86bd0172010a72c9043927377e37438e464058e6408898ebcc264"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33073,
+        "kind": "SUMMARY",
+        "maximum_encoded_octets": 33078
+      },
+      "encoded_length": 33078,
+      "kind": "SUMMARY",
+      "legacy_encoded_length": 33080,
+      "sha256": "76eee5b1a7ac8933b76dff47d97bd52c7885e659bb2b24c61d77afcee53c2f4f"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 186782,
+        "kind": "OFFER",
+        "maximum_encoded_octets": 186787
+      },
+      "encoded_length": 186787,
+      "kind": "OFFER",
+      "legacy_encoded_length": 186789,
+      "sha256": "508a1c5c34cd4afc77c74f5b5034312feaa87cd58983b75fa9badd854ff7eb06"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 39179,
+        "kind": "REQUEST",
+        "maximum_encoded_octets": 39184
+      },
+      "encoded_length": 39184,
+      "kind": "REQUEST",
+      "legacy_encoded_length": 39186,
+      "sha256": "f217966a7c0a3b96639db9cc0f57d64594e6c77616fb7449fbc2e628fd9b3a48"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 1048569,
+        "kind": "DATA",
+        "maximum_encoded_octets": 1048574
+      },
+      "encoded_length": 1048574,
+      "kind": "DATA",
+      "legacy_encoded_length": 1048576,
+      "sha256": "58540c3ef5b09f8a036e5922566dc3552708e9cf6e56dd1febad81b3c1c1a949"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33334,
+        "kind": "RECEIPT",
+        "maximum_encoded_octets": 33339
+      },
+      "encoded_length": 33339,
+      "kind": "RECEIPT",
+      "legacy_encoded_length": 33341,
+      "sha256": "1feb115aa061926950e4e05fb156eb38cf47d6d0656f9d699c1de3b3ac8857f9"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33319,
+        "kind": "FAILURE",
+        "maximum_encoded_octets": 33324
+      },
+      "encoded_length": 33324,
+      "kind": "FAILURE",
+      "legacy_encoded_length": 33326,
+      "sha256": "93725ec9fbdea10272f071cbcde93292ede4f310efead3cb1418c5528bc68fce"
+    }
+  ],
+  "numeric_precision_vectors": {
+    "reason": "profile has no approximate numeric fields",
+    "status": "not-applicable"
+  }
+}

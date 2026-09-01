@@ -28,3 +28,9 @@ format.
 evidence; `partial`, `fail`, and `blocked` entries retain an explicit pending
 inventory. Proposed specification questions are kept in the same
 machine-readable document so ambiguous mandatory behavior is never guessed.
+
+`v0.1-compact-candidate/` is a separate private-use revision-2 evidence pack.
+It contains exact valid, boundary, malformed, truncated, noncanonical,
+missing-context, and symbolic one-past vectors plus all-operation reaching
+witness digests. It is intentionally not folded into the registered-codec
+bundle because the specification registry has not allocated the candidate.
