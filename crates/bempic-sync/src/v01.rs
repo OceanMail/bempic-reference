@@ -30,7 +30,8 @@ const MAX_FAILURE_SCOPE_OCTETS: usize = 64;
 pub const MAX_EXPERIMENTAL_RECORD_OCTETS: usize = 1_048_576;
 
 /// Operation kind used by declared maximum-size analysis.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OperationKind {
     /// Capability negotiation.
     Capabilities,
@@ -46,6 +47,65 @@ pub enum OperationKind {
     Receipt,
     /// Scoped failure.
     Failure,
+}
+
+impl OperationKind {
+    /// All seven core operations in protocol order.
+    pub const ALL: [Self; 7] = [
+        Self::Capabilities,
+        Self::Summary,
+        Self::Offer,
+        Self::Request,
+        Self::Data,
+        Self::Receipt,
+        Self::Failure,
+    ];
+
+    /// Stable operation name used by measurement artifacts.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Capabilities => "CAPABILITIES",
+            Self::Summary => "SUMMARY",
+            Self::Offer => "OFFER",
+            Self::Request => "REQUEST",
+            Self::Data => "DATA",
+            Self::Receipt => "RECEIPT",
+            Self::Failure => "FAILURE",
+        }
+    }
+}
+
+/// Arithmetic proof terms for one experimental operation maximum.
+///
+/// These terms describe the disposable B1 record image only. They neither
+/// allocate an official codec identifier nor define a stable v0.1 wire format.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct MaximumSizeAnalysis {
+    /// Core operation.
+    pub kind: OperationKind,
+    /// Fixed complete-record envelope.
+    pub envelope_octets: usize,
+    /// Largest valid operation payload under the current declarative bounds.
+    pub operation_payload_octets: usize,
+    /// Count byte plus 32 maximum-sized record extensions.
+    pub record_extension_octets: usize,
+    /// Exact resulting complete-record maximum.
+    pub maximum_encoded_octets: usize,
+}
+
+/// Reproducible arithmetic proof terms for an experimental operation maximum.
+pub const fn maximum_size_analysis(kind: OperationKind) -> MaximumSizeAnalysis {
+    let maximum_encoded_octets = declared_max_encoded_size(kind);
+    let record_extension_octets = 1 + MAX_EXTENSIONS * (4 + 1 + 2 + MAX_EXTENSION_VALUE_OCTETS);
+    MaximumSizeAnalysis {
+        kind,
+        envelope_octets: ENVELOPE_OCTETS,
+        operation_payload_octets: maximum_encoded_octets
+            - ENVELOPE_OCTETS
+            - record_extension_octets,
+        record_extension_octets,
+        maximum_encoded_octets,
+    }
 }
 
 /// Proven conservative maximum for each disposable codec operation.
@@ -2289,31 +2349,176 @@ mod tests {
         assert_eq!(SenderState::Receipted.interrupted(), SenderState::Receipted);
     }
 
-    #[test]
-    fn declared_per_operation_maxima_cover_concrete_records() {
+    fn maximum_record_extensions() -> Vec<Extension> {
+        (0..MAX_EXTENSIONS)
+            .map(|index| Extension {
+                id: u32::try_from(index).unwrap(),
+                critical: false,
+                value: vec![0xa5; MAX_EXTENSION_VALUE_OCTETS],
+            })
+            .collect()
+    }
+
+    fn maximum_offer_entries() -> Vec<CollectionEntry> {
+        (0_u8..128)
+            .map(|index| CollectionEntry {
+                sequence: u64::from(index) + 1,
+                object_id: ObjectId([index; 32]),
+                part_id: u32::from(index),
+                descriptor: RepresentationDescriptor {
+                    representation_id: RepresentationId([index.wrapping_add(128); 32]),
+                    schema_fingerprint: SchemaFingerprint([index; 32]),
+                    codec_id: u32::from(index),
+                    codec_revision: u32::MAX,
+                    codec_parameters: vec![0x5a; MAX_CODEC_PARAMETER_OCTETS],
+                    encoded_length: MAX_REPRESENTATION_OCTETS,
+                    decoded_length: Some(MAX_REPRESENTATION_OCTETS),
+                    content_digest: ContentDigest([index; 32]),
+                    usefulness_expiry: Some(u64::MAX),
+                },
+            })
+            .collect()
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn maximum_records() -> Vec<(OperationKind, Record)> {
+        let extensions = maximum_record_extensions();
+        let schemas = (0_u8..16)
+            .map(|index| SchemaFingerprint([index; 32]))
+            .collect::<Vec<_>>();
+        let capabilities = Record {
+            operation: Operation::Capabilities(Capabilities {
+                protocol_generations: (0_u16..8)
+                    .map(|major| ProtocolGeneration {
+                        major,
+                        minor: u16::MAX,
+                    })
+                    .collect(),
+                schema_fingerprints: schemas.clone(),
+                codec_preferences: schemas
+                    .iter()
+                    .enumerate()
+                    .map(|(index, schema_fingerprint)| CodecPreference {
+                        codec_id: u32::try_from(index).unwrap(),
+                        revision: u32::MAX,
+                        schema_fingerprint: *schema_fingerprint,
+                    })
+                    .collect(),
+                max_operation_octets: u32::try_from(MAX_OPERATION_OCTETS).unwrap(),
+                max_data_payload_octets: MAX_REPRESENTATION_OCTETS,
+                receipt_levels: u8::MAX,
+                security_class: SecurityClass::Confidential,
+                extensions: (0..MAX_EXTENSIONS)
+                    .map(|index| ExtensionDeclaration {
+                        id: u32::try_from(index).unwrap(),
+                        critical: index % 2 == 0,
+                    })
+                    .collect(),
+            }),
+            extensions: extensions.clone(),
+        };
+        let summary = Record {
+            operation: Operation::Summary(Summary {
+                collection_id: [0xff; 32],
+                generation: u64::MAX,
+                item_count: MAX_COLLECTION_ENTRIES as u64,
+                collection_digest: [0xff; 32],
+            }),
+            extensions: extensions.clone(),
+        };
+        let offer_entries = maximum_offer_entries();
+        let offer = Record {
+            operation: Operation::Offer(Offer {
+                collection_id: [0xff; 32],
+                mode: OfferMode::Full,
+                base_generation: 0,
+                target_generation: 128,
+                first_cursor: Cursor::Full(offer_entries[0].key()),
+                last_cursor: Cursor::Full(offer_entries[127].key()),
+                descriptors: offer_entries,
+                more: true,
+            }),
+            extensions: extensions.clone(),
+        };
+        let request = Record {
+            operation: Operation::Request(Request::RepresentationData(RepresentationDataRequest {
+                budget_id: [0xff; 16],
+                max_total_bempic_bytes: u64::MAX,
+                max_sender_to_receiver_bytes: u64::MAX,
+                max_receiver_to_sender_bytes: u64::MAX,
+                selections: (0_u8..128)
+                    .map(|index| RepresentationSelection {
+                        representation_id: RepresentationId([index; 32]),
+                        durable_prefix_offset: MAX_REPRESENTATION_OCTETS,
+                        max_desired_payload_octets: MAX_REPRESENTATION_OCTETS,
+                    })
+                    .collect(),
+            })),
+            extensions: extensions.clone(),
+        };
+        let data_payload_octets = declared_max_encoded_size(OperationKind::Data)
+            - maximum_size_analysis(OperationKind::Data).envelope_octets
+            - maximum_size_analysis(OperationKind::Data).record_extension_octets
+            - (32 + 8 + 4);
+        let data = Record {
+            operation: Operation::Data(Data {
+                representation_id: RepresentationId([0xff; 32]),
+                offset: 0,
+                payload: vec![0xa5; data_payload_octets],
+            }),
+            extensions: extensions.clone(),
+        };
+        let receipt = Record {
+            operation: Operation::Receipt(Receipt {
+                subject_id: [0xff; 32],
+                status: ReceiptStatus::RepresentationCommitted,
+                verified_digest: Some(ContentDigest([0xff; 32])),
+                idempotency_id: [0xff; 16],
+                reason: Some("x".repeat(MAX_FAILURE_DETAIL_OCTETS)),
+            }),
+            extensions: extensions.clone(),
+        };
         let failure = Record {
             operation: Operation::Failure(Failure {
                 code: FailureCode::LimitExceeded,
-                scope: vec![0; MAX_FAILURE_SCOPE_OCTETS],
-                retryable: false,
+                scope: vec![0xff; MAX_FAILURE_SCOPE_OCTETS],
+                retryable: true,
                 detail: Some("x".repeat(MAX_FAILURE_DETAIL_OCTETS)),
             }),
-            extensions: Vec::new(),
+            extensions,
         };
-        assert!(
-            failure.exact_encoded_size().unwrap()
-                <= declared_max_encoded_size(OperationKind::Failure)
-        );
-        let data = Record {
-            operation: Operation::Data(Data {
-                representation_id: prepared(1).descriptor.representation_id,
-                offset: 0,
-                payload: vec![0; 65_535],
-            }),
-            extensions: Vec::new(),
-        };
-        assert!(
-            data.exact_encoded_size().unwrap() <= declared_max_encoded_size(OperationKind::Data)
-        );
+        vec![
+            (OperationKind::Capabilities, capabilities),
+            (OperationKind::Summary, summary),
+            (OperationKind::Offer, offer),
+            (OperationKind::Request, request),
+            (OperationKind::Data, data),
+            (OperationKind::Receipt, receipt),
+            (OperationKind::Failure, failure),
+        ]
+    }
+
+    #[test]
+    fn every_declared_operation_maximum_has_an_exact_valid_witness() {
+        let supported_extensions = (0..MAX_EXTENSIONS)
+            .map(|index| u32::try_from(index).unwrap())
+            .collect::<BTreeSet<_>>();
+        for (kind, record) in maximum_records() {
+            let analysis = maximum_size_analysis(kind);
+            assert_eq!(
+                analysis.maximum_encoded_octets,
+                declared_max_encoded_size(kind)
+            );
+            assert_eq!(
+                record.exact_encoded_size().unwrap(),
+                analysis.maximum_encoded_octets
+            );
+            let bytes = record.encode().unwrap();
+            assert_eq!(bytes.len(), analysis.maximum_encoded_octets);
+            assert_eq!(
+                Record::decode(&bytes, &supported_extensions).unwrap(),
+                record
+            );
+        }
     }
 }

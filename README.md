@@ -57,11 +57,13 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo run -p bempic-conformance --release
+cargo run -p bempic-conformance --release -- tranche2-measurements
 cargo run -p bempic-cli -- demo
 cargo run -p bempic-bench --release
 python -m pip install --require-hashes -r requirements-conformance.txt
 python scripts/verify_conformance.py
-python -m unittest prototype.tests.test_proof -v
+python scripts/check_docs.py
+python -m unittest discover -s prototype/tests -v
 python -m prototype.demo
 python -m prototype.benchmark
 ```
@@ -73,6 +75,8 @@ compatibility promise.
 `test-vectors/v0.1-experimental/` uses the merged specification's bundle
 contract and an independent Python verifier. Its manifest explicitly marks the
 mandatory catalog incomplete; it is evidence, not a conformance claim.
+The catalog records all V01–V15 cases, executable evidence, pending vectors,
+and precise specification questions without inventing expected values.
 
 ## License
 

@@ -1,5 +1,13 @@
 //! Generation-0.1 protocol persistence separate from representation byte files.
 
+#[path = "v01_representation.rs"]
+mod representation;
+
+pub use representation::{
+    AcceptOutcome, DurableBoundary, RepresentationSnapshot, RepresentationStore,
+    RepresentationStoreError,
+};
+
 use bempic_sync::v01::{
     collection_checkpoint, CollectionEntry, Cursor, NegotiatedProfile, Offer, OfferMode, Summary,
 };
@@ -55,7 +63,7 @@ pub struct ProtocolStore {
 impl ProtocolStore {
     /// Open both durable slots, ignoring a torn newest slot when the other is valid.
     pub fn open(root: impl AsRef<Path>) -> Result<Self, StoreError> {
-        fs::create_dir_all(root.as_ref())?;
+        crate::durable::create_dir_all(root.as_ref())?;
         let slots = [
             root.as_ref().join("bempic-v01-state.0.json"),
             root.as_ref().join("bempic-v01-state.1.json"),
@@ -291,11 +299,15 @@ impl ProtocolStore {
             .ok_or(StoreError::SequenceExhausted)?;
         let bytes = serde_json::to_vec(&next)?;
         let index = usize::try_from(next.sequence % 2).expect("slot index is zero or one");
+        let slot_existed = self.slots[index].exists();
         {
             let mut file = File::create(&self.slots[index])?;
             file.write_all(&bytes)?;
             file.write_all(b"\n")?;
             file.sync_all()?;
+        }
+        if !slot_existed {
+            crate::durable::sync_parent_directory(&self.slots[index])?;
         }
         self.state = next;
         Ok(())

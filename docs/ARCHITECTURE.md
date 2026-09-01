@@ -55,6 +55,29 @@ is verified and committed before data payload capacity is calculated. This
 covers an interruption after the final suffix was persisted but before commit,
 including an empty representation for which no part file has yet been created.
 
+Persistence writes synchronize file contents before advancing state. New
+prefix and protocol-slot entries, atomic state/complete promotions, quarantine
+moves, and newly created store directories also synchronize their containing
+directories on Unix before the corresponding durable boundary can report
+success. On Windows, the safe standard-library path validates the parent and
+retains file synchronization plus completed rename semantics; it does not claim
+a portable directory-handle flush guarantee.
+
+`bempic_sim::v01` is the connected full-width experimental path. It carries the
+exact descriptor through capability negotiation, `SUMMARY`, `OFFER`, explicit
+`REPRESENTATION_DATA`, `DATA`, strict decode, whole-representation validation,
+atomic commit, and `RECEIPT`. Its accounting separates directional BEMPIC
+records, representation payload, duplicates, useful committed bytes, and
+carrier cost. Sender-only, receiver-only, simultaneous, cold, repeated,
+replayed, truncated, corrupt, and deterministic storage-boundary failures are
+exercised without adding lower-layer routing or fragmentation behavior.
+
+The committed tranche-2 measurement artifact reports useful payload to first
+body delivery, exact quote error, protocol overhead, warm/cold no-change size,
+and persistent-resume versus full-restart cost. Maximum-size analyses are
+arithmetic proofs for the disposable B1 implementation only; every declared
+maximum has a valid encoded witness in tests, but none is an approved codec.
+
 ## Security boundary
 
 SHA-256 in v0.1.0 binds identifiers and detects accidental/corrupt bytes. It is

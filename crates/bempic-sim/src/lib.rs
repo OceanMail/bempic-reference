@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 //! Deterministic complete-record carrier simulation and transfer harness.
 
+/// Integrated full-width v0.1 experimental transfer path.
+pub mod v01;
+
 use bempic_carrier::{
     CarrierDirection, CarrierError, CostPrecision, DeliveryOutcome, OpaqueRecordCarrier,
     Opportunity,

@@ -4,6 +4,8 @@
 /// Crash-conscious v0.1 negotiation, checkpoint, page-cursor, and receipt state.
 pub mod v01;
 
+mod durable;
+
 use bempic_model::{ContentDigest, PreparedRepresentation, RepresentationId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -129,7 +131,7 @@ impl FileStore {
         root: impl AsRef<Path>,
         representation: PreparedRepresentation,
     ) -> Result<Self, StoreError> {
-        fs::create_dir_all(root.as_ref())?;
+        durable::create_dir_all(root.as_ref())?;
         let stem = representation.id.to_string();
         let state_path = root.as_ref().join(format!("{stem}.json"));
         let part_path = root.as_ref().join(format!("{stem}.part"));
@@ -230,7 +232,7 @@ impl FileStore {
             file.write_all(&bytes)?;
             file.sync_all()?;
         }
-        replace_file(&temporary, &self.state_path)?;
+        durable::replace_file(&temporary, &self.state_path)?;
         Ok(())
     }
 
@@ -343,12 +345,16 @@ impl ProgressStore for FileStore {
         }
         let suffix = &payload[overlap..];
         if !suffix.is_empty() {
+            let part_existed = self.part_path.exists();
             let mut file = OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(&self.part_path)?;
             file.write_all(suffix)?;
             file.sync_all()?;
+            if !part_existed {
+                durable::sync_parent_directory(&self.part_path)?;
+            }
         }
         let accepted = u64::try_from(suffix.len()).map_err(|_| StoreError::Length)?;
         self.state.accepted_bytes += accepted;
@@ -383,7 +389,7 @@ impl ProgressStore for FileStore {
             || !self.representation.verify()
         {
             if self.part_path.exists() {
-                fs::rename(&self.part_path, self.next_quarantine())?;
+                durable::replace_file(&self.part_path, &self.next_quarantine())?;
             }
             self.state.accepted_bytes = 0;
             self.state.status = Status::Offered;
@@ -408,7 +414,7 @@ impl ProgressStore for FileStore {
             let file = File::create(&self.part_path)?;
             file.sync_all()?;
         }
-        replace_file(&self.part_path, &self.complete_path)?;
+        durable::replace_file(&self.part_path, &self.complete_path)?;
         self.state.status = Status::Complete;
         self.state.accepted_bytes = self.representation.size();
         self.save()?;
@@ -449,19 +455,6 @@ const fn phase_bit(flag: StateFlag) -> u8 {
         StateFlag::Offer => 1 << 3,
         StateFlag::Receipt => 1 << 4,
     }
-}
-
-#[cfg(windows)]
-fn replace_file(source: &Path, destination: &Path) -> std::io::Result<()> {
-    if destination.exists() {
-        fs::remove_file(destination)?;
-    }
-    fs::rename(source, destination)
-}
-
-#[cfg(not(windows))]
-fn replace_file(source: &Path, destination: &Path) -> std::io::Result<()> {
-    fs::rename(source, destination)
 }
 
 /// Persistence or integrity failure.

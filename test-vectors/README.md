@@ -23,3 +23,8 @@ python scripts/verify_conformance.py
 Its `mandatory_catalog_status` is `incomplete-release-blocker`. Expected bytes
 remain an unregistered experimental codec revision and do not freeze a wire
 format.
+
+`v0.1-experimental/catalog.json` inventories V01–V15. A `pass` names executable
+evidence; `partial`, `fail`, and `blocked` entries retain an explicit pending
+inventory. Proposed specification questions are kept in the same
+machine-readable document so ambiguous mandatory behavior is never guessed.
