@@ -437,7 +437,7 @@ fn maximum_witness_records() -> Vec<(OperationKind, Record)> {
                 .expect("core operation maximum fits u32"),
             max_data_payload_octets: MAX_REPRESENTATION_OCTETS,
             receipt_levels: u8::MAX,
-            security_class: SecurityClass::Confidential,
+            security_class: SecurityClass::Public,
             extensions: (0_u32..32)
                 .map(|id| ExtensionDeclaration {
                     id,

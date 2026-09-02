@@ -119,10 +119,15 @@ impl ProtocolStore {
             return Err(StoreError::NoRecoverableSlot);
         }
         valid.sort_by_key(|state| state.sequence);
-        Ok(Self {
-            slots,
-            state: valid.pop().unwrap_or_default(),
-        })
+        let mut state = valid.pop().unwrap_or_default();
+        if state
+            .capability_cache
+            .as_ref()
+            .is_some_and(|cache| validate_negotiated_profile(&cache.profile).is_err())
+        {
+            state.capability_cache = None;
+        }
+        Ok(Self { slots, state })
     }
 
     /// Persist one negotiated profile, bound to a peer/profile identity and expiry.
@@ -614,6 +619,42 @@ mod tests {
         let reopened = ProtocolStore::open(root.path()).unwrap();
         assert_eq!(reopened.cached_negotiation(peer, 20), Some(&refreshed));
         assert!(reopened.cached_negotiation(peer, 21).is_none());
+    }
+
+    #[test]
+    fn reopen_invalidates_legacy_private_cache_without_losing_unrelated_state() {
+        let root = tempdir().unwrap();
+        let peer = [0x45; 32];
+        let receipt = [0x46; 16];
+        let mut private = profile();
+        private.codec_id = 0xffff_0001;
+        private.codec_revision = 2;
+        let legacy_state = State {
+            sequence: 1,
+            capability_cache: Some(CapabilityCache {
+                peer_profile_id: peer,
+                expires_at: u64::MAX,
+                profile: private,
+            }),
+            receipt_ids: vec![receipt],
+            ..State::default()
+        };
+        fs::write(
+            root.path().join("bempic-v01-state.1.json"),
+            serde_json::to_vec(&legacy_state).unwrap(),
+        )
+        .unwrap();
+
+        let mut reopened = ProtocolStore::open(root.path()).unwrap();
+        assert!(reopened.cached_negotiation(peer, 0).is_none());
+        assert!(reopened.has_receipt(receipt));
+        assert!(reopened.commit_receipt([0x47; 16]).unwrap());
+        drop(reopened);
+
+        let reopened_again = ProtocolStore::open(root.path()).unwrap();
+        assert!(reopened_again.cached_negotiation(peer, 0).is_none());
+        assert!(reopened_again.has_receipt(receipt));
+        assert!(reopened_again.has_receipt([0x47; 16]));
     }
 
     #[test]

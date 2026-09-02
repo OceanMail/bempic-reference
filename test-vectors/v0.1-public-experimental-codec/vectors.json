@@ -14,7 +14,7 @@
   },
   "evidence_artifact": {
     "path": "benchmarks/results/compact-codec-public-evidence-2026-09-02.json",
-    "sha256": "9b7fcfae3b4bb8ffae9751e7c3f2ea8c6cf750161197fc8e099467335bc3f24e"
+    "sha256": "7275c9eb066e1805f9c36744e4b21f4547dc9e9c4ccdc58d79761a66bf2713cf"
   },
   "maximum_witnesses": [
     {
@@ -28,7 +28,7 @@
       "encoded_length": 33280,
       "kind": "CAPABILITIES",
       "legacy_encoded_length": 33282,
-      "sha256": "fb6532e9567b8877b4ac125353afb0e63aea057706a30ac90471316b6521be62"
+      "sha256": "95cee08fbfe61b7d58684867acfa7f698340a5c59d1207d3ed537c32be7050a8"
     },
     {
       "analysis": {

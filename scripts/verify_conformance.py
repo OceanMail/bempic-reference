@@ -158,6 +158,34 @@ def encode_uvarint(value: int) -> bytes:
         output.append(low | 0x80)
 
 
+def maximum_public_capabilities_witness() -> bytes:
+    """Independently construct the public-profile maximum CAPABILITIES record."""
+    payload = bytearray([8])
+    for major in range(8):
+        payload.extend(struct.pack(">HH", major, 0xFFFF))
+    payload.append(1)
+    schema = bytes.fromhex(COMPACT_SCHEMA_FINGERPRINT)
+    payload.extend(schema)
+    payload.append(1)
+    payload.extend(struct.pack(">II", COMPACT_CODEC_ID, COMPACT_CODEC_REVISION))
+    payload.extend(schema)
+    payload.extend(struct.pack(">I", COMPACT_MAX_RECORD))
+    payload.extend(struct.pack(">Q", 1_073_741_824))
+    payload.extend((0xFF, 0))  # all receipt levels; public security class
+    payload.append(32)
+    for extension_id in range(32):
+        payload.extend(struct.pack(">I", extension_id))
+        payload.append(int(extension_id % 2 == 0))
+    payload.append(32)
+    for extension_id in range(32):
+        payload.extend(struct.pack(">I", extension_id))
+        payload.extend((0,))
+        payload.extend(struct.pack(">H", 1_024))
+        payload.extend(b"\xa5" * 1_024)
+    body = b"\x00" + payload
+    return b"\xb1" + encode_uvarint(len(body)) + body
+
+
 def decode_uvarint(value: bytes, position: int) -> tuple[int, int]:
     start = position
     result = 0
@@ -418,6 +446,14 @@ def verify_compact_artifact() -> dict[str, Any]:
             raise VerificationError("compact maximum analysis mismatch")
         if len(witness["sha256"]) != 64:
             raise VerificationError("maximum witness digest width mismatch")
+        if witness["kind"] == "CAPABILITIES":
+            independently_encoded = maximum_public_capabilities_witness()
+            if len(independently_encoded) != witness["encoded_length"]:
+                raise VerificationError("public CAPABILITIES witness length mismatch")
+            if hashlib.sha256(independently_encoded).hexdigest() != witness["sha256"]:
+                raise VerificationError(
+                    "public CAPABILITIES witness content/security mismatch"
+                )
 
     valid_vectors = 0
     invalid_vectors = 0

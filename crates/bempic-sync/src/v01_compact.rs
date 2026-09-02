@@ -145,6 +145,9 @@ pub fn validate_representation_descriptor(
 /// Validate an advertisement as public revision-1 interoperability evidence.
 pub fn validate_profile_capabilities(capabilities: &Capabilities) -> Result<(), Error> {
     capabilities.validate()?;
+    if capabilities.security_class != SecurityClass::Public {
+        return Err(Error::UnsupportedCodec("unsupported security class"));
+    }
     if capabilities.schema_fingerprints != [PROFILE_SCHEMA_FINGERPRINT]
         || capabilities.codec_preferences.len() != 1
     {
@@ -169,6 +172,9 @@ pub fn validate_negotiated_profile(profile: &NegotiatedProfile) -> Result<(), Er
     })?;
     if profile.schema_fingerprint != PROFILE_SCHEMA_FINGERPRINT {
         return Err(Error::UnsupportedCodec("mismatched negotiated schema"));
+    }
+    if profile.security_class != SecurityClass::Public {
+        return Err(Error::UnsupportedCodec("unsupported security class"));
     }
     Ok(())
 }
@@ -743,6 +749,41 @@ mod tests {
         assert_eq!(
             negotiate_profile(&local, &mixed),
             Err(FailureCode::UnsupportedCodec)
+        );
+    }
+
+    #[test]
+    fn public_profile_rejects_non_public_security_before_selection_or_decode() {
+        let local = profile_capabilities();
+        let mut confidential = local.clone();
+        confidential.security_class = SecurityClass::Confidential;
+        assert_eq!(
+            validate_profile_capabilities(&confidential),
+            Err(Error::UnsupportedCodec("unsupported security class"))
+        );
+        assert_eq!(
+            negotiate_profile(&local, &confidential),
+            Err(FailureCode::UnsupportedCodec)
+        );
+
+        let confidential_record = Record {
+            operation: Operation::Capabilities(confidential),
+            extensions: Vec::new(),
+        };
+        assert_eq!(
+            decode(
+                &generic_bytes(&confidential_record),
+                &BTreeSet::new(),
+                Context::default()
+            ),
+            Err(Error::UnsupportedCodec("unsupported security class"))
+        );
+
+        let mut selected = negotiate_profile(&local, &local).unwrap();
+        selected.security_class = SecurityClass::AuthenticatedPublic;
+        assert_eq!(
+            validate_negotiated_profile(&selected),
+            Err(Error::UnsupportedCodec("unsupported security class"))
         );
     }
 
