@@ -573,6 +573,7 @@ def verify_tranche3(
         for name in (
             "first_observation",
             "duplicate_observation",
+            "reopened_before_duplicate_and_conflict",
             "conflict_error",
             "original_binding_preserved",
             "unrelated_binding_preserved",
@@ -685,6 +686,12 @@ def verify_tranche3(
         case["rejected_before_mutation"] for case in v04["invalid"]
     ):
         raise VerificationError("V04 one-past rejection mismatch")
+    if v04["one_past_manifest_decoded_octets"] != 65_537 or not any(
+        case["case"] == "one-past-manifest-allocation"
+        and case["error"] == "manifest_octets violates a v0.1 bound"
+        for case in v04["invalid"]
+    ):
+        raise VerificationError("V04 aggregate manifest bound mismatch")
     if vectors["V05"]["unselected_representation_payload_bytes"] != "0":
         raise VerificationError("V05 unselected payload mismatch")
 
@@ -868,10 +875,43 @@ def verify_tranche3(
         code = failure_names.index(case["code"])
         retryable = case["advertised_retryable"]
         verify_failure_record(case["encoded_hex"], code, retryable)
-        if case["automatic_retry_attempts"] != int(retryable) or not case["retry_bounded"]:
+        expected_after = "committed" if retryable else "partial"
+        if (
+            case["automatic_retry_attempts"] != int(retryable)
+            or not case["retry_condition_changed"]
+            or case["first_retry_authorized"] != retryable
+            or case["second_retry_authorized"]
+            or not case["retry_state_reopened"]
+            or not case["retry_bounded"]
+            or case["affected_state_before"] != "partial"
+            or case["affected_state_after"] != expected_after
+        ):
             raise VerificationError("V15 bounded retry mismatch")
-        if case["unrelated_committed_state"] != "usable" or case["result"] != "pass":
+        unrelated_digest = hashlib.sha256(b"unrelated-committed-v15").hexdigest()
+        if (
+            case["unrelated_content_digest"] != unrelated_digest
+            or case["unrelated_committed_state"] != "usable"
+            or not case["scoped_mutation"]
+            or case["result"] != "pass"
+        ):
             raise VerificationError("V15 scoped state mismatch")
+        state_trace = {
+            "code": case["code"],
+            "retryable": retryable,
+            "affected_before": case["affected_state_before"],
+            "affected_after": case["affected_state_after"],
+            "condition_changed": case["retry_condition_changed"],
+            "first_retry_authorized": case["first_retry_authorized"],
+            "second_retry_authorized": case["second_retry_authorized"],
+            "automatic_retry_attempts": case["automatic_retry_attempts"],
+            "unrelated_digest": case["unrelated_content_digest"],
+            "unrelated_usable": case["unrelated_committed_state"] == "usable",
+        }
+        state_trace_bytes = json.dumps(
+            state_trace, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
+        if case["state_trace_digest"] != hashlib.sha256(state_trace_bytes).hexdigest():
+            raise VerificationError("V15 state trace digest mismatch")
 
     metric_names = {
         "semantic_bytes",

@@ -47,8 +47,10 @@ Generation-0.1 compatibility state persists the entire selected
 protocol/schema/codec/security/extension tuple with an exact peer/profile
 identity and expiry. The two-slot copy-on-write protocol store also retains
 the prior checkpoint, target generation, accepted descriptors, page cursor,
-and receipt idempotency IDs; target digest mismatch never replaces the prior
-valid checkpoint.
+receipt idempotency IDs, opaque application-owned immutable-object bindings,
+and per-scope single-use failure retry allowances. These bindings and retry
+attempts survive reopen; target digest mismatch or object conflict never
+replaces prior valid state.
 
 After reopening, a durable prefix whose length equals the representation size
 is verified and committed before data payload capacity is calculated. This
@@ -110,7 +112,21 @@ OceanMail's pinned fixture supplies normalized immutable application semantics
 and a 32-octet opaque comparison digest. BEMPIC stores only the object-ID to
 opaque-digest binding needed for idempotent observation and conflict rejection;
 normalization, object-ID generation, receipt policy, and mailbox behavior remain
-outside BEMPIC core.
+outside BEMPIC core. The binding is persisted in `ProtocolStore` and the
+tranche-3 evidence reopens the store before duplicate and conflict observations.
+
+`MessageManifest::validate` computes the exact platform-independent decoded
+scalar storage for all application fields and representation descriptors and
+rejects an aggregate above 65,536 octets before durable mutation. The separate
+input-envelope guard is available to a future conforming manifest decoder, but
+no such decoder is integrated, so the pre-allocation portion of SEM-01 remains
+partial.
+
+V15 records each decoded `FAILURE` in `ProtocolStore`, durably marks the scoped
+condition change, consumes at most one advertised automatic retry across a
+reopen, and drives an affected `RepresentationStore` to either its retained
+partial state or committed state. A separately committed representation is
+reopened and byte-checked after every one of the 26 traces.
 
 The tranche-3 generator drives the actual representation and protocol stores
 for the authoritative 24-row V08 covering array. Memory rows model bounded

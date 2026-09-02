@@ -8,8 +8,10 @@ pub use representation::{
     RepresentationStoreError,
 };
 
+use bempic_model::v01::{ImmutableObservation, ObjectId};
 use bempic_sync::v01::{
-    collection_checkpoint, CollectionEntry, Cursor, NegotiatedProfile, Offer, OfferMode, Summary,
+    collection_checkpoint, CollectionEntry, Cursor, Failure, FailureCode, NegotiatedProfile, Offer,
+    OfferMode, Operation, Record, Summary,
 };
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -42,12 +44,44 @@ struct ReconciliationState {
     pages_complete: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct ObjectBinding {
+    object_id: ObjectId,
+    immutable_semantics_digest: [u8; 32],
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct FailureState {
+    scope: Vec<u8>,
+    code: FailureCode,
+    retryable: bool,
+    condition_changed: bool,
+    automatic_retry_attempts: u8,
+}
+
+/// Durable observation of one scoped failure and its bounded retry state.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FailureRetrySnapshot {
+    /// Exact failure code last observed for the scope.
+    pub code: FailureCode,
+    /// Whether the peer allowed retry after the condition changed.
+    pub retryable: bool,
+    /// Whether a changed condition was durably recorded.
+    pub condition_changed: bool,
+    /// Automatic retry attempts consumed for this failure observation.
+    pub automatic_retry_attempts: u8,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 struct State {
     sequence: u64,
     capability_cache: Option<CapabilityCache>,
     collections: Vec<CollectionState>,
     receipt_ids: Vec<[u8; 16]>,
+    #[serde(default)]
+    object_bindings: Vec<ObjectBinding>,
+    #[serde(default)]
+    failures: Vec<FailureState>,
 }
 
 /// Two-slot copy-on-write protocol store.
@@ -277,6 +311,117 @@ impl ProtocolStore {
         self.state.receipt_ids.contains(&idempotency_id)
     }
 
+    /// Durably bind an object ID to opaque application-owned immutable semantics.
+    pub fn observe_immutable_object(
+        &mut self,
+        object_id: ObjectId,
+        immutable_semantics_digest: [u8; 32],
+    ) -> Result<ImmutableObservation, StoreError> {
+        if let Some(binding) = self
+            .state
+            .object_bindings
+            .iter()
+            .find(|binding| binding.object_id == object_id)
+        {
+            return if binding.immutable_semantics_digest == immutable_semantics_digest {
+                Ok(ImmutableObservation::Duplicate)
+            } else {
+                Err(StoreError::ImmutableObjectConflict)
+            };
+        }
+        self.state.object_bindings.push(ObjectBinding {
+            object_id,
+            immutable_semantics_digest,
+        });
+        self.state
+            .object_bindings
+            .sort_by_key(|binding| binding.object_id);
+        self.save()?;
+        Ok(ImmutableObservation::New)
+    }
+
+    /// Return one durable opaque immutable-semantics binding.
+    pub fn immutable_object_binding(&self, object_id: ObjectId) -> Option<[u8; 32]> {
+        self.state
+            .object_bindings
+            .iter()
+            .find(|binding| binding.object_id == object_id)
+            .map(|binding| binding.immutable_semantics_digest)
+    }
+
+    /// Durably record a decoded failure and reset its single automatic-retry allowance.
+    pub fn record_failure(&mut self, failure: &Failure) -> Result<(), StoreError> {
+        Record {
+            operation: Operation::Failure(failure.clone()),
+            extensions: Vec::new(),
+        }
+        .exact_encoded_size()
+        .map_err(|_| StoreError::InvalidFailure)?;
+        let replacement = FailureState {
+            scope: failure.scope.clone(),
+            code: failure.code,
+            retryable: failure.retryable,
+            condition_changed: false,
+            automatic_retry_attempts: 0,
+        };
+        if let Some(state) = self
+            .state
+            .failures
+            .iter_mut()
+            .find(|state| state.scope == failure.scope)
+        {
+            *state = replacement;
+        } else {
+            self.state.failures.push(replacement);
+            self.state
+                .failures
+                .sort_by(|left, right| left.scope.cmp(&right.scope));
+        }
+        self.save()
+    }
+
+    /// Durably record that the failed scope's external condition changed.
+    pub fn mark_failure_condition_changed(&mut self, scope: &[u8]) -> Result<(), StoreError> {
+        let state = self
+            .state
+            .failures
+            .iter_mut()
+            .find(|state| state.scope == scope)
+            .ok_or(StoreError::UnknownFailureScope)?;
+        state.condition_changed = true;
+        self.save()
+    }
+
+    /// Consume at most one automatic retry after an advertised, changed condition.
+    pub fn take_failure_retry(&mut self, scope: &[u8]) -> Result<bool, StoreError> {
+        let state = self
+            .state
+            .failures
+            .iter_mut()
+            .find(|state| state.scope == scope)
+            .ok_or(StoreError::UnknownFailureScope)?;
+        if !state.retryable || !state.condition_changed || state.automatic_retry_attempts != 0 {
+            return Ok(false);
+        }
+        state.automatic_retry_attempts = 1;
+        self.save()?;
+        Ok(true)
+    }
+
+    /// Read the durable retry state for one exact failure scope.
+    pub fn failure_retry_snapshot(&self, scope: &[u8]) -> Option<FailureRetrySnapshot> {
+        self.state
+            .failures
+            .iter()
+            .find(|state| state.scope == scope)
+            .map(|state| FailureRetrySnapshot {
+                code: state.code,
+                retryable: state.retryable,
+                condition_changed: state.condition_changed,
+                automatic_retry_attempts: state.automatic_retry_attempts,
+            })
+    }
+
     fn collection(&self, collection_id: [u8; 32]) -> Option<&CollectionState> {
         self.state
             .collections
@@ -347,6 +492,15 @@ pub enum StoreError {
     /// Reconstructed target digest did not match the authority.
     #[error("reconstructed target checkpoint digest mismatch")]
     TargetDigestMismatch,
+    /// A decoded failure did not satisfy core bounds.
+    #[error("failure record is invalid")]
+    InvalidFailure,
+    /// No durable failure exists for the exact scope.
+    #[error("failure scope is unknown")]
+    UnknownFailureScope,
+    /// An object ID was already bound to different immutable semantics.
+    #[error("object ID conflicts with its durable immutable semantics binding")]
+    ImmutableObjectConflict,
 }
 
 #[cfg(test)]
@@ -415,6 +569,62 @@ mod tests {
         assert_eq!(reopened.cached_negotiation(peer, 100), Some(&profile()));
         assert!(reopened.cached_negotiation(peer, 101).is_none());
         assert!(reopened.has_receipt(receipt));
+    }
+
+    #[test]
+    fn immutable_bindings_reopen_and_conflicts_preserve_unrelated_state() {
+        let root = tempdir().unwrap();
+        let object_id = ObjectId([1; 32]);
+        let unrelated = ObjectId([2; 32]);
+        {
+            let mut store = ProtocolStore::open(root.path()).unwrap();
+            assert!(matches!(
+                store.observe_immutable_object(object_id, [3; 32]),
+                Ok(ImmutableObservation::New)
+            ));
+            assert!(matches!(
+                store.observe_immutable_object(unrelated, [4; 32]),
+                Ok(ImmutableObservation::New)
+            ));
+        }
+        let mut reopened = ProtocolStore::open(root.path()).unwrap();
+        assert!(matches!(
+            reopened.observe_immutable_object(object_id, [3; 32]),
+            Ok(ImmutableObservation::Duplicate)
+        ));
+        assert!(matches!(
+            reopened.observe_immutable_object(object_id, [5; 32]),
+            Err(StoreError::ImmutableObjectConflict)
+        ));
+        assert_eq!(reopened.immutable_object_binding(object_id), Some([3; 32]));
+        assert_eq!(reopened.immutable_object_binding(unrelated), Some([4; 32]));
+    }
+
+    #[test]
+    fn failure_retry_allowance_is_durable_and_single_use() {
+        for retryable in [false, true] {
+            let root = tempdir().unwrap();
+            let scope = [0x53];
+            let failure = Failure {
+                code: FailureCode::StorageFailure,
+                scope: scope.to_vec(),
+                retryable,
+                detail: None,
+            };
+            let mut store = ProtocolStore::open(root.path()).unwrap();
+            store.record_failure(&failure).unwrap();
+            store.mark_failure_condition_changed(&scope).unwrap();
+            assert_eq!(store.take_failure_retry(&scope).unwrap(), retryable);
+            drop(store);
+
+            let mut reopened = ProtocolStore::open(root.path()).unwrap();
+            let snapshot = reopened.failure_retry_snapshot(&scope).unwrap();
+            assert_eq!(snapshot.code, FailureCode::StorageFailure);
+            assert_eq!(snapshot.retryable, retryable);
+            assert!(snapshot.condition_changed);
+            assert_eq!(snapshot.automatic_retry_attempts, u8::from(retryable));
+            assert!(!reopened.take_failure_retry(&scope).unwrap());
+        }
     }
 
     #[test]

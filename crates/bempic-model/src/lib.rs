@@ -509,6 +509,7 @@ pub mod v01 {
     impl MessageManifest {
         /// Enforce all model bounds and cross-field invariants.
         pub fn validate(&self) -> Result<(), ModelError> {
+            validate_manifest_octet_length(manifest_decoded_octets(self)?)?;
             validate_metadata(&self.sender, 1, MAX_ADDRESS_OCTETS, "sender")?;
             if self.recipients.is_empty() || self.recipients.len() > MAX_RECIPIENTS {
                 return Err(ModelError::CountOutOfBounds("recipients"));
@@ -536,6 +537,50 @@ pub mod v01 {
             }
             Ok(())
         }
+    }
+
+    /// Exact decoded scalar storage represented by a message manifest.
+    ///
+    /// The formula includes every fixed-width scalar and every variable-length
+    /// octet/string member, including representation descriptors. Container
+    /// implementation overhead is deliberately excluded so the result is
+    /// deterministic across implementations.
+    pub fn manifest_decoded_octets(manifest: &MessageManifest) -> Result<usize, ModelError> {
+        fn add(total: &mut usize, value: usize) -> Result<(), ModelError> {
+            *total = total
+                .checked_add(value)
+                .ok_or(ModelError::AllocationSizeOverflow)?;
+            Ok(())
+        }
+
+        let mut total = 32 + 8;
+        add(&mut total, manifest.sender.len())?;
+        for recipient in &manifest.recipients {
+            add(&mut total, recipient.len())?;
+        }
+        if let Some(subject) = &manifest.subject {
+            add(&mut total, subject.len())?;
+        }
+        for part in &manifest.parts {
+            add(&mut total, 4 + 1)?;
+            add(&mut total, part.media_type.len())?;
+            if let Some(filename) = &part.filename {
+                add(&mut total, filename.len())?;
+            }
+            for representation in &part.representations {
+                add(&mut total, 32 + 32 + 4 + 4)?;
+                add(&mut total, representation.codec_parameters.len())?;
+                add(&mut total, 8 + 1)?;
+                if representation.decoded_length.is_some() {
+                    add(&mut total, 8)?;
+                }
+                add(&mut total, 32 + 1)?;
+                if representation.usefulness_expiry.is_some() {
+                    add(&mut total, 8)?;
+                }
+            }
+        }
+        Ok(total)
     }
 
     /// Stable per-scope orientation for normative semantic-byte accounting.
@@ -657,7 +702,11 @@ pub mod v01 {
         u64::try_from(decoded_value.len()).map_err(|_| ModelError::SemanticBytesOverflow)
     }
 
-    /// Reject a decoded manifest allocation before constructing its value tree.
+    /// Reject an input envelope before decoding or a decoded aggregate before mutation.
+    ///
+    /// Byte-oriented decoders must call this with the input envelope length
+    /// before constructing the value tree. `MessageManifest::validate` calls it
+    /// again with `manifest_decoded_octets` before any durable mutation.
     pub const fn validate_manifest_octet_length(length: usize) -> Result<(), ModelError> {
         if length > MAX_MANIFEST_OCTETS {
             Err(ModelError::BoundExceeded("manifest_octets"))
@@ -675,10 +724,11 @@ pub mod v01 {
         Duplicate,
     }
 
-    /// Policy-free durable model for immutable object-ID conflict detection.
+    /// Policy-free value model for immutable object-ID conflict detection.
     ///
     /// Applications define and normalize the immutable-semantics digest. BEMPIC
     /// stores only the opaque 32-octet binding and never overwrites a conflict.
+    /// Durable implementations use `bempic_store::v01::ProtocolStore`.
     #[derive(Clone, Debug, Default, Eq, PartialEq)]
     pub struct ImmutableObjectRegistry {
         bindings: BTreeMap<ObjectId, [u8; 32]>,
@@ -921,6 +971,9 @@ pub mod v01 {
         /// Semantic-byte arithmetic exceeded the u64 evidence domain.
         #[error("semantic byte count overflow")]
         SemanticBytesOverflow,
+        /// Decoded allocation arithmetic exceeded the platform size domain.
+        #[error("decoded allocation size overflow")]
+        AllocationSizeOverflow,
         /// An object ID was reused for different opaque immutable semantics.
         #[error("object ID conflicts with its immutable semantics binding")]
         ImmutableObjectConflict,
@@ -1043,6 +1096,44 @@ pub mod v01 {
             assert_eq!(validate_manifest_octet_length(MAX_MANIFEST_OCTETS), Ok(()));
             assert_eq!(
                 validate_manifest_octet_length(MAX_MANIFEST_OCTETS + 1),
+                Err(ModelError::BoundExceeded("manifest_octets"))
+            );
+
+            let descriptor = binary(Vec::new()).descriptor;
+            let mut manifest = MessageManifest {
+                object_id: ObjectId::fixture(b"aggregate-bound"),
+                created_at: 0,
+                sender: "s".into(),
+                recipients: vec!["r".into()],
+                subject: None,
+                parts: (0..MAX_PARTS)
+                    .map(|part_id| PartDescriptor {
+                        part_id: u32::try_from(part_id).unwrap(),
+                        role: if part_id == 0 {
+                            PartRole::Body
+                        } else {
+                            PartRole::Attachment
+                        },
+                        media_type: "a/b".into(),
+                        filename: (part_id != 0).then(|| "f".into()),
+                        representations: vec![descriptor.clone()],
+                    })
+                    .collect(),
+            };
+            let baseline = manifest_decoded_octets(&manifest).unwrap();
+            let mut remaining = MAX_MANIFEST_OCTETS + 1 - baseline;
+            for part in &mut manifest.parts {
+                let take = remaining.min(MAX_CODEC_PARAMETER_OCTETS);
+                part.representations[0].codec_parameters = vec![0; take];
+                remaining -= take;
+            }
+            assert_eq!(remaining, 0);
+            assert_eq!(
+                manifest_decoded_octets(&manifest),
+                Ok(MAX_MANIFEST_OCTETS + 1)
+            );
+            assert_eq!(
+                manifest.validate(),
                 Err(ModelError::BoundExceeded("manifest_octets"))
             );
         }

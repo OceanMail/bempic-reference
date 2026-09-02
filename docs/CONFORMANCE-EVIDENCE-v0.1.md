@@ -21,10 +21,10 @@ Status meanings:
 
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
-| SEM-01 | pass | Model/readers plus twelve V04/V07 one-past scalar, count, nesting, representation, and manifest-allocation cases enforce bounds before mutation. |
+| SEM-01 | partial | Model validation rejects the exact 65,537-decoded-octet V04 aggregate and every other V04/V07 one-past case before durable mutation. A conforming manifest decoder does not yet invoke the input-envelope guard before constructing the value tree. |
 | SEM-02 | pass | BEMPIC validates normalized input; the pinned OceanMail fixture proves NFC preparation at the application boundary without moving policy into core. |
 | SEM-03 | pass | Rust and independent RFC 8785 Python verification reproduce all published fingerprints, including core `c4a686e7…`, and full representation IDs. |
-| SEM-04 | pass | The opaque immutable-object binding registry accepts identical repeats, rejects conflicts, and preserves unrelated bindings; V11 publishes the trace. |
+| SEM-04 | pass | The two-slot protocol store reopens the opaque immutable-object bindings, accepts identical repeats, rejects conflicts without overwrite, and preserves unrelated bindings; V11 publishes the trace. |
 | SEM-05 | pass | Python oracle tests and benchmark report zero unselected/deferred attachment payload. |
 | SEM-06 | pass | Equal checkpoint, known delta, and bounded unknown full fallback are implemented and tested. |
 | SEM-07 | pass | Two-slot protocol storage retains cursors and rejects target-digest mismatch. |
@@ -41,7 +41,7 @@ Status meanings:
 | SEM-18 | pass | Highest identical generation and preference-sum schema/codec selection with deterministic tie-breaks is tested. |
 | SEM-19 | pass | Unknown optional extensions are skipped and critical ones reject before return/mutation. |
 | SEM-20 | pass | B1/compact malformed/property runs remain zero-finding; V04/V07/V11 add the complete clarified allocation, count, nesting, range, integrity, and conflict cases. |
-| SEM-21 | pass | Every V11/V15 failure is scoped and the independent verifier confirms the unrelated committed representation remains exactly reconstructable. |
+| SEM-21 | pass | Every V11/V15 failure is scoped; V15 executes durable failure/retry and affected-representation transitions, and the independent verifier confirms the unrelated committed representation remains exactly reconstructable. |
 | SEM-22 | pass | Contact loss and budget exhaustion remain resumable simulator pauses. |
 | SEM-23 | pass | Opaque carrier and mock M4P adapter contain no routing, TTL, fragment, deduplication, or link reliability state. |
 
@@ -97,11 +97,11 @@ Status meanings:
 | REF-04 | pass | RFC 8785 fingerprints, full IDs, content digest, preparation, validation, and opaque reconstruction pass. |
 | REF-05 | pass | Append checkpoints, delta/full reconciliation, and durable cursors pass. |
 | REF-06 | pass | Hard total/directional budgets, exact preflight, and accounting are one integrated v0.1 path. |
-| REF-07 | pass | Full-width crash/reopen, shared directory-entry durability, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
+| REF-07 | pass | Full-width crash/reopen, durable immutable bindings, durable single-use retry allowance, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
 | REF-08 | pass | V13 executes compatible, version/schema/codec incompatible, deterministic tie, stale-cache recovery, optional, and critical-extension traces. |
 | REF-09 | blocked | The private compact profile, maxima, witnesses, and verifier exist, but no specification-registry experimental allocation exists. |
 | REF-10 | pass | Tool/version/duration/corpus digest and zero findings are published in `conformance/fuzz-report.json`. |
-| REF-11 | partial | The deterministic V01–V15 bundle is locally complete for decided behavior; three catalog rows remain explicitly blocked by allocation or external review. |
+| REF-11 | partial | The deterministic V01–V15 bundle passes exact-head Ubuntu, Windows, macOS, and Python CI for decided behavior; three catalog rows remain explicitly blocked by allocation or external review. |
 | REF-12 | pass | Independent Python verifies the complete tranche-3 artifact and the retained private compact pack. |
 | REF-13 | partial | Oracle and differential tests pass; no maintainer-accepted parity disposition exists. |
 | REF-14 | blocked | Raw/MIME/candidate/interruption/persistence/full-restart figures exist; a legal B2F oracle does not. |
@@ -131,7 +131,7 @@ Status meanings:
   [`conformance/fuzz-report.json`](../conformance/fuzz-report.json).
 - Experimental blocked/nonconformant v0.1 bundle:
   [`test-vectors/v0.1-experimental/manifest.json`](../test-vectors/v0.1-experimental/manifest.json),
-  digest `f27d2086322c4dfaae2608e3fd4afcadfe0671d70bbccf7ae07543c05cd8544c`.
+  digest `7fa71ac6cdc8e37fea6d23389f12a562f239da5d5f5c5c1e8a41e198e26e372b`.
 - V01–V15 inventory and executed evidence:
   [`test-vectors/v0.1-experimental/catalog.json`](../test-vectors/v0.1-experimental/catalog.json).
 - Independent verifier: [`scripts/verify_conformance.py`](../scripts/verify_conformance.py).

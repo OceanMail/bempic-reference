@@ -20,7 +20,7 @@
     {"id": "V01", "status": "blocked", "reason": "The prescribed private candidate passes at 35 warm and 75 cold octets; public byte evidence remains blocked on specification allocation."},
     {"id": "V02", "status": "blocked", "reason": "Executed delta evidence offers only sequence 101 with zero prior-manifest bytes; public byte evidence remains blocked on specification allocation."},
     {"id": "V03", "status": "pass", "reason": "Executed unknown-checkpoint paging is exactly 128/128/1 and the first cursor survives reopen."},
-    {"id": "V04", "status": "pass", "reason": "Nine valid/minimum/maximum cases and twelve one-past scalar, count, nesting, and allocation cases are bundled."},
+    {"id": "V04", "status": "pass", "reason": "Nine valid/minimum/maximum cases and twelve one-past scalar, count, nesting, and allocation cases are bundled; the aggregate manifest is exactly 65,537 decoded octets."},
     {"id": "V05", "status": "pass", "reason": "Full/preview body alternatives and deferred attachment metadata are bundled with zero unselected payload."},
     {"id": "V06", "status": "pass", "reason": "Selected compressible and incompressible full-width representations reproduce exact digest, ID, length, and decoded bytes."},
     {"id": "V07", "status": "pass", "reason": "Empty, one-byte, maximum DATA, symbolic streaming 1 GiB, and one-past preallocation cases are bundled."},
@@ -31,7 +31,7 @@
     {"id": "V12", "status": "pass", "reason": "All seven operations execute total/send/receive exact and one-byte-short boundaries: 42 cases with zero quote error."},
     {"id": "V13", "status": "pass", "reason": "Compatible, every incompatibility, deterministic tie, stale-cache recovery, optional, and critical traces are bundled."},
     {"id": "V14", "status": "pass", "reason": "Existing full-width before/after durable-boundary fault evidence remains green and is cataloged in twelve required rows."},
-    {"id": "V15", "status": "pass", "reason": "All thirteen core codes encode/decode under both advertised flags with one-or-zero bounded retry and scoped state: 26 cases."}
+    {"id": "V15", "status": "pass", "reason": "All thirteen core codes encode/decode under both advertised flags through durable failure/retry and representation-store transitions with one-or-zero bounded retry and scoped state: 26 cases."}
   ],
   "overall_status": "blocked-not-conformant",
   "platform": {
@@ -41,7 +41,7 @@
     "rustc": "1.81.0 (eeb90cda1 2024-09-04)"
   },
   "published_vectors": {
-    "bundle_digest": "f27d2086322c4dfaae2608e3fd4afcadfe0671d70bbccf7ae07543c05cd8544c",
+    "bundle_digest": "7fa71ac6cdc8e37fea6d23389f12a562f239da5d5f5c5c1e8a41e198e26e372b",
     "invalid": [{"group": "V04/V07/V11", "cases": 21, "status": "pass"}],
     "manifest": "test-vectors/v0.1-experimental/manifest.json",
     "catalog": "test-vectors/v0.1-experimental/catalog.json",
@@ -67,10 +67,10 @@
     }
   },
   "requirements": [
-    {"id": "SEM-01", "status": "pass", "requirement": "Enforce every core bound before allocation or durable mutation.", "evidence": ["bempic_model::v01 validation", "validate_manifest_octet_length", "V04/V07 one-past allocation-count-nesting vectors"], "gap": null},
+    {"id": "SEM-01", "status": "partial", "requirement": "Enforce every core bound before allocation or durable mutation.", "evidence": ["bempic_model::v01 aggregate decoded-octet validation", "validate_manifest_octet_length", "V04 exact 65,537-octet and V07 one-past vectors"], "gap": "The model rejects aggregate overflow before durable mutation, but no conforming manifest decoder yet invokes the input-envelope guard before constructing the value tree."},
     {"id": "SEM-02", "status": "pass", "requirement": "Normalize metadata and prepare identical inputs deterministically.", "evidence": ["manifest NFC/control validation", "OceanMail normalized immutable fixture at cc55c1b", "independent immutable-semantics digest"], "gap": null},
     {"id": "SEM-03", "status": "pass", "requirement": "Compute schema fingerprints, content digests, and representation IDs exactly.", "evidence": ["published_rfc8785_schema_fingerprints_are_exact", "scripts/verify_conformance.py", "core fingerprint c4a686e7..."], "gap": null},
-    {"id": "SEM-04", "status": "pass", "requirement": "Reject object or representation ID reuse with conflicting metadata.", "evidence": ["ImmutableObjectRegistry opaque binding", "V11 object-id-metadata-conflict", "OceanMail immutable semantics fixture"], "gap": null},
+    {"id": "SEM-04", "status": "pass", "requirement": "Reject object or representation ID reuse with conflicting metadata.", "evidence": ["ProtocolStore durable opaque binding", "reopen then duplicate/conflict", "V11 object-id-metadata-conflict", "OceanMail immutable semantics fixture"], "gap": null},
     {"id": "SEM-05", "status": "pass", "requirement": "Defer every unselected representation and attachment payload.", "evidence": ["Python oracle deferred-attachment tests", "zero metadata_attachment_payload_bytes benchmark"], "gap": null},
     {"id": "SEM-06", "status": "pass", "requirement": "Reconcile equal, known, and unknown checkpoints through bounded deterministic pages.", "evidence": ["checkpoints_delta_full_fallback_and_cursors_are_deterministic"], "gap": null},
     {"id": "SEM-07", "status": "pass", "requirement": "Persist page cursors and reject inconsistent target digests.", "evidence": ["durable_cursor_reopens_and_target_digest_must_match"], "gap": null},
@@ -87,7 +87,7 @@
     {"id": "SEM-18", "status": "pass", "requirement": "Negotiate deterministic highest common protocol/schema/codec tuple.", "evidence": ["negotiate", "preference tie test"], "gap": null},
     {"id": "SEM-19", "status": "pass", "requirement": "Skip unknown optional and reject critical extensions before mutation.", "evidence": ["unknown_optional_is_skipped_and_unknown_critical_rejected"], "gap": null},
     {"id": "SEM-20", "status": "pass", "requirement": "Fail closed on all malformed/non-canonical/overflow/corrupt input.", "evidence": ["50,000-case malformed runner", "V04/V07 one-past bundle", "executed V11 outcome matrix"], "gap": null},
-    {"id": "SEM-21", "status": "pass", "requirement": "Preserve unrelated committed state after scoped failure.", "evidence": ["executed V11 unrelated committed reconstruction", "all 26 V15 scoped traces"], "gap": null},
+    {"id": "SEM-21", "status": "pass", "requirement": "Preserve unrelated committed state after scoped failure.", "evidence": ["executed V11 unrelated committed reconstruction", "all 26 V15 durable failure/retry/store traces and state digests"], "gap": null},
     {"id": "SEM-22", "status": "pass", "requirement": "Treat contact loss and budget exhaustion as pauses.", "evidence": ["deterministic simulator interruption/resume tests"], "gap": null},
     {"id": "SEM-23", "status": "pass", "requirement": "Avoid M4P/DataLink responsibility duplication.", "evidence": ["OpaqueRecordCarrier", "mock_m4p_binding_preserves_one_complete_opaque_record"], "gap": null},
 
@@ -127,11 +127,11 @@
     {"id": "REF-04", "status": "pass", "requirement": "Preparation, full fingerprints, SHA-256 IDs, validation, exact reconstruction.", "evidence": ["PreparedRepresentation v01", "independent verifier"], "gap": null},
     {"id": "REF-05", "status": "pass", "requirement": "Checkpoints, delta, bounded full fallback, durable cursors.", "evidence": ["reconcile", "ProtocolStore"], "gap": null},
     {"id": "REF-06", "status": "pass", "requirement": "Hard total/directional budgets, exact preflight, accounting counters.", "evidence": ["BudgetScope", "bempic_sim::v01 integrated exact preflight/accounting", "tranche-2 artifact"], "gap": null},
-    {"id": "REF-07", "status": "pass", "requirement": "Crash persistence, reopen, source change, corruption retry, idempotency.", "evidence": ["RepresentationStore nine-boundary matrix", "shared directory-entry durability primitive", "all endpoint restart modes", "corruption quarantine/retry", "duplicate replay accounting"], "gap": null},
+    {"id": "REF-07", "status": "pass", "requirement": "Crash persistence, reopen, source change, corruption retry, idempotency.", "evidence": ["RepresentationStore nine-boundary matrix", "ProtocolStore durable immutable bindings and single-use retry allowance", "all endpoint restart modes", "corruption quarantine/retry", "duplicate replay accounting"], "gap": null},
     {"id": "REF-08", "status": "pass", "requirement": "Capability/version/schema/codec/extension negotiation and all incompatibilities.", "evidence": ["V13 compatible and three incompatible tuples", "deterministic tie", "executed stale-cache recovery", "optional/critical extension traces"], "gap": null},
     {"id": "REF-09", "status": "blocked", "requirement": "One labeled deterministic codec with registered ID, bounds, maxima, canonical parameters, exact analysis.", "evidence": ["complete private compact candidate profile", "exact maxima, witnesses, vectors, and independent verification"], "gap": "The candidate uses a private-use ID and has no specification-registry experimental allocation."},
     {"id": "REF-10", "status": "pass", "requirement": "Malformed fuzz/property tests with published tools/findings.", "evidence": ["conformance/fuzz-report.json", "B1: 50,000 random + 187 structured + 4,100 property cases; compact: the same random stream + 175 structured + 4,100 property cases; zero findings"], "gap": null},
-    {"id": "REF-11", "status": "partial", "requirement": "Consume vector format and publish complete mandatory bundle cross-platform.", "evidence": ["RFC 8785 manifest", "V01-V15 catalog", "deterministic tranche3-evidence generator"], "gap": "Three catalog rows remain blocked by codec allocation or external M4P review; cross-platform CI is pending this branch."},
+    {"id": "REF-11", "status": "partial", "requirement": "Consume vector format and publish complete mandatory bundle cross-platform.", "evidence": ["RFC 8785 manifest", "V01-V15 catalog", "deterministic tranche3-evidence generator", "exact-head Ubuntu/Windows/macOS/Python CI"], "gap": "Three catalog rows remain blocked by codec allocation or external M4P review."},
     {"id": "REF-12", "status": "pass", "requirement": "Independent decoder/vector verifier.", "evidence": ["Python independently reconstructs bundle digest, schemas, semantic values, IDs, and state traces"], "gap": null},
     {"id": "REF-13", "status": "partial", "requirement": "Reproduce transitional proof or accepted normative differences.", "evidence": ["23 Python tests", "Rust/Python legacy vector"], "gap": "No maintainer-accepted parity decision."},
     {"id": "REF-14", "status": "blocked", "requirement": "Raw, MIME, B2F/LZHUF, codec, interruption, persistence measurements.", "evidence": ["legacy raw/MIME/compression corpus", "tranche-2 interruption/persistence/full-restart artifact"], "gap": "A legally compatible reproducible B2F/LZHUF oracle remains unavailable."},

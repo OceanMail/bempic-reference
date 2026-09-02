@@ -1,18 +1,17 @@
 //! Deterministic tranche-3 semantic and state-vector evidence.
 
 use bempic_model::v01::{
-    fingerprint_from_hex, message_manifest_semantic_octets, opaque_semantic_octets,
-    validate_manifest_octet_length, ContentDigest, ImmutableObjectRegistry, ImmutableObservation,
-    MessageManifest, ModelError, ObjectId, PartDescriptor, PartRole, PreparedRepresentation,
-    RepresentationDescriptor, RepresentationId, SchemaFingerprint, SemanticAccounting,
-    SemanticDirection, MAX_ADDRESS_OCTETS, MAX_CODEC_PARAMETER_OCTETS, MAX_FILENAME_OCTETS,
-    MAX_MANIFEST_OCTETS, MAX_MEDIA_TYPE_OCTETS, MAX_PARTS, MAX_RECIPIENTS,
-    MAX_REPRESENTATIONS_PER_PART, MAX_REPRESENTATION_OCTETS, MESSAGE_SCHEMA_FINGERPRINT_HEX,
-    OPAQUE_SCHEMA_FINGERPRINT_HEX, SPECIFICATION_COMMIT,
+    fingerprint_from_hex, manifest_decoded_octets, message_manifest_semantic_octets,
+    opaque_semantic_octets, ContentDigest, ImmutableObservation, MessageManifest, ModelError,
+    ObjectId, PartDescriptor, PartRole, PreparedRepresentation, RepresentationDescriptor,
+    RepresentationId, SchemaFingerprint, SemanticAccounting, SemanticDirection, MAX_ADDRESS_OCTETS,
+    MAX_CODEC_PARAMETER_OCTETS, MAX_FILENAME_OCTETS, MAX_MANIFEST_OCTETS, MAX_MEDIA_TYPE_OCTETS,
+    MAX_PARTS, MAX_RECIPIENTS, MAX_REPRESENTATIONS_PER_PART, MAX_REPRESENTATION_OCTETS,
+    MESSAGE_SCHEMA_FINGERPRINT_HEX, OPAQUE_SCHEMA_FINGERPRINT_HEX, SPECIFICATION_COMMIT,
 };
 use bempic_store::v01::{
     DurableBoundary, ProtocolStore, RepresentationSnapshot, RepresentationStore,
-    RepresentationStoreError,
+    RepresentationStoreError, StoreError,
 };
 use bempic_sync::v01::{
     collection_checkpoint, negotiate, reconcile, BudgetScope, Capabilities, CodecPreference,
@@ -730,7 +729,7 @@ fn catalog() -> Value {
         ("V01", "empty-and-equal-collections", "blocked", "Private codec 0xffff0001/2 passes 35/75-octet gates; specification allocation remains unresolved."),
         ("V02", "known-checkpoint-incremental-delta", "blocked", "Semantic/state result passes; byte-exact public evidence awaits codec allocation."),
         ("V03", "unknown-checkpoint-bounded-full-fallback", "pass", "257 entries page deterministically as 128/128/1 and cursor reopen is durable."),
-        ("V04", "metadata-boundaries", "pass", "All required valid minima/maxima and one-past scalar/count/nesting cases are bundled."),
+        ("V04", "metadata-boundaries", "pass", "All required valid minima/maxima and one-past scalar/count/nesting cases are bundled, including an exact 65,537-decoded-octet aggregate."),
         ("V05", "deferred-attachment-selection", "pass", "Full/preview alternatives and unselected attachment evidence report zero unselected payload."),
         ("V06", "compressibility-extremes", "pass", "Selected compressible and incompressible full-width representations reconstruct exactly."),
         ("V07", "representation-and-operation-boundaries", "pass", "Empty, one-byte, maximum DATA, symbolic streaming maximum representation, and one-past rejection are bundled."),
@@ -741,7 +740,7 @@ fn catalog() -> Value {
         ("V12", "total-and-directional-budget-boundaries", "pass", "Every operation and total/send/receive exact and one-short boundary is bundled."),
         ("V13", "negotiation-and-extension-compatibility", "pass", "Compatible, incompatible, tie, stale-cache, optional, and critical traces are bundled."),
         ("V14", "storage-failure-boundaries", "pass", "Existing full-width before/after durable-boundary fault evidence remains green."),
-        ("V15", "failure-code-state-effects", "pass", "All 13 codes with both advertised flags preserve scope and enforce bounded retry."),
+        ("V15", "failure-code-state-effects", "pass", "All 13 codes with both advertised flags execute durable failure/retry and affected/unrelated representation-store transitions."),
     ];
     json!({
         "catalog": "BEMPIC-v0.1-mandatory-vector-inventory",
@@ -818,7 +817,7 @@ fn manifest_cases() -> Result<Value, Box<dyn Error>> {
     let mut value = tiny.clone();
     value.recipients = vec!["r".to_owned(); MAX_RECIPIENTS + 1];
     invalid.push(("one-past-recipients", value.validate()));
-    let mut value = max_parts;
+    let mut value = max_parts.clone();
     value.parts.push(PartDescriptor {
         part_id: 65,
         role: PartRole::Attachment,
@@ -863,10 +862,18 @@ fn manifest_cases() -> Result<Value, Box<dyn Error>> {
     let mut descriptor = base_descriptor(1);
     descriptor.encoded_length = MAX_REPRESENTATION_OCTETS + 1;
     invalid.push(("one-past-representation-allocation", descriptor.validate()));
-    invalid.push((
-        "one-past-manifest-allocation",
-        validate_manifest_octet_length(MAX_MANIFEST_OCTETS + 1),
-    ));
+    let mut aggregate = max_parts;
+    let baseline = manifest_decoded_octets(&aggregate)?;
+    let mut remaining = MAX_MANIFEST_OCTETS + 1 - baseline;
+    for part in &mut aggregate.parts {
+        let take = remaining.min(MAX_CODEC_PARAMETER_OCTETS);
+        part.representations[0].codec_parameters = vec![0; take];
+        remaining -= take;
+    }
+    if remaining != 0 || manifest_decoded_octets(&aggregate)? != MAX_MANIFEST_OCTETS + 1 {
+        return Err("could not construct exact one-past decoded manifest".into());
+    }
+    invalid.push(("one-past-manifest-allocation", aggregate.validate()));
 
     Ok(json!({
         "valid": [
@@ -882,10 +889,12 @@ fn manifest_cases() -> Result<Value, Box<dyn Error>> {
         ],
         "invalid": invalid.into_iter().map(|(case, result)| json!({"case": case, "rejected_before_mutation": result.is_err(), "error": result.err().map(|error| error.to_string())})).collect::<Vec<_>>(),
         "maximum_decoded_manifest_octets": MAX_MANIFEST_OCTETS,
+        "one_past_manifest_decoded_octets": MAX_MANIFEST_OCTETS + 1,
         "full_width_identifier_octets": 32
     }))
 }
 
+#[allow(clippy::too_many_lines)]
 fn v15_cases() -> Result<Vec<Value>, Box<dyn Error>> {
     let codes = [
         FailureCode::UnsupportedVersion,
@@ -916,6 +925,85 @@ fn v15_cases() -> Result<Vec<Value>, Box<dyn Error>> {
             };
             let bytes = record.encode()?;
             let decoded = Record::decode(&bytes, &BTreeSet::new())?;
+            let Operation::Failure(decoded_failure) = decoded.operation.clone() else {
+                return Err("decoded V15 operation was not FAILURE".into());
+            };
+
+            let root = tempfile::tempdir()?;
+            let affected =
+                opaque(format!("affected-{}-{retryable}", failure_code_name(code)).into_bytes())?;
+            let unrelated = opaque(b"unrelated-committed-v15".to_vec())?;
+            {
+                let mut store = RepresentationStore::open(
+                    root.path().join("unrelated"),
+                    unrelated.descriptor.clone(),
+                )?;
+                store.accept_descriptor(&unrelated.descriptor)?;
+                finish_store(&mut store, &unrelated, 0, [0x77; 16])?;
+            }
+            let mut affected_store = RepresentationStore::open(
+                root.path().join("affected"),
+                affected.descriptor.clone(),
+            )?;
+            affected_store.accept_descriptor(&affected.descriptor)?;
+            affected_store.accept_data(
+                affected.descriptor.representation_id,
+                0,
+                &affected.bytes[..1],
+            )?;
+            let affected_state_before = state_name(&affected_store.snapshot());
+
+            let protocol_root = root.path().join("protocol");
+            let mut protocol = ProtocolStore::open(&protocol_root)?;
+            protocol.record_failure(&decoded_failure)?;
+            protocol.mark_failure_condition_changed(&decoded_failure.scope)?;
+            let first_retry_authorized = protocol.take_failure_retry(&decoded_failure.scope)?;
+            if first_retry_authorized {
+                finish_store(&mut affected_store, &affected, 1, [0x53; 16])?;
+            }
+            drop(protocol);
+            drop(affected_store);
+
+            let mut reopened_protocol = ProtocolStore::open(&protocol_root)?;
+            let retry_snapshot = reopened_protocol
+                .failure_retry_snapshot(&decoded_failure.scope)
+                .ok_or("failure retry state did not survive reopen")?;
+            let second_retry_authorized =
+                reopened_protocol.take_failure_retry(&decoded_failure.scope)?;
+            let reopened_affected = RepresentationStore::open(
+                root.path().join("affected"),
+                affected.descriptor.clone(),
+            )?;
+            let affected_state_after = state_name(&reopened_affected.snapshot());
+            let reopened_unrelated = RepresentationStore::open(
+                root.path().join("unrelated"),
+                unrelated.descriptor.clone(),
+            )?;
+            let unrelated_usable = reopened_unrelated.snapshot().committed
+                && reopened_unrelated.read_complete()? == unrelated.bytes;
+            let affected_state_expected = if retryable { "committed" } else { "partial" };
+            let pass = decoded == record
+                && first_retry_authorized == retryable
+                && !second_retry_authorized
+                && retry_snapshot.code == code
+                && retry_snapshot.retryable == retryable
+                && retry_snapshot.condition_changed
+                && retry_snapshot.automatic_retry_attempts == u8::from(retryable)
+                && affected_state_before == "partial"
+                && affected_state_after == affected_state_expected
+                && unrelated_usable;
+            let state_trace = json!({
+                "code": failure_code_name(code),
+                "retryable": retryable,
+                "affected_before": affected_state_before,
+                "affected_after": affected_state_after,
+                "condition_changed": retry_snapshot.condition_changed,
+                "first_retry_authorized": first_retry_authorized,
+                "second_retry_authorized": second_retry_authorized,
+                "automatic_retry_attempts": retry_snapshot.automatic_retry_attempts,
+                "unrelated_digest": hex::encode(unrelated.descriptor.content_digest.0),
+                "unrelated_usable": unrelated_usable
+            });
             cases.push(json!({
                 "case": format!("{}-retryable-{retryable}", failure_code_name(code)),
                 "code": failure_code_name(code),
@@ -923,13 +1011,20 @@ fn v15_cases() -> Result<Vec<Value>, Box<dyn Error>> {
                 "encoded_hex": hex::encode(&bytes),
                 "encoded_length": bytes.len(),
                 "exact_failure_code": decoded == record,
-                "automatic_retry_attempts": u8::from(retryable),
-                "retry_condition_changed": retryable,
-                "retry_bounded": true,
+                "automatic_retry_attempts": retry_snapshot.automatic_retry_attempts,
+                "retry_condition_changed": retry_snapshot.condition_changed,
+                "first_retry_authorized": first_retry_authorized,
+                "second_retry_authorized": second_retry_authorized,
+                "retry_state_reopened": true,
+                "retry_bounded": !second_retry_authorized,
                 "affected_scope": "53",
-                "unrelated_committed_state": "usable",
-                "scoped_mutation": true,
-                "result": "pass"
+                "affected_state_before": affected_state_before,
+                "affected_state_after": affected_state_after,
+                "unrelated_content_digest": hex::encode(unrelated.descriptor.content_digest.0),
+                "unrelated_committed_state": if unrelated_usable { "usable" } else { "damaged" },
+                "scoped_mutation": unrelated_usable,
+                "state_trace_digest": sha256_hex(&compact_json_bytes(&state_trace)?),
+                "result": if pass { "pass" } else { "fail" }
             }));
         }
     }
@@ -1053,18 +1148,24 @@ fn immutable_object_evidence(oceanmail: &Value) -> Result<Value, Box<dyn Error>>
     )?;
     let digest: [u8; 32] = digest_bytes.try_into().map_err(|_| "digest length")?;
     let unrelated = ObjectId([0xff; 32]);
-    let mut registry = ImmutableObjectRegistry::default();
-    let first = registry.observe(object_id, digest)?;
-    let duplicate = registry.observe(object_id, digest)?;
-    registry.observe(unrelated, [0x55; 32])?;
-    let conflict = registry.observe(object_id, [0xaa; 32]);
+    let root = tempfile::tempdir()?;
+    let first;
+    {
+        let mut store = ProtocolStore::open(root.path())?;
+        first = store.observe_immutable_object(object_id, digest)?;
+        store.observe_immutable_object(unrelated, [0x55; 32])?;
+    }
+    let mut reopened = ProtocolStore::open(root.path())?;
+    let duplicate = reopened.observe_immutable_object(object_id, digest)?;
+    let conflict = reopened.observe_immutable_object(object_id, [0xaa; 32]);
     Ok(json!({
         "source_commit": OCEANMAIL_COMMIT,
         "first_observation": matches!(first, ImmutableObservation::New),
         "duplicate_observation": matches!(duplicate, ImmutableObservation::Duplicate),
-        "conflict_error": matches!(conflict, Err(ModelError::ImmutableObjectConflict)),
-        "original_binding_preserved": registry.binding(object_id) == Some(digest),
-        "unrelated_binding_preserved": registry.binding(unrelated) == Some([0x55; 32]),
+        "reopened_before_duplicate_and_conflict": true,
+        "conflict_error": matches!(conflict, Err(StoreError::ImmutableObjectConflict)),
+        "original_binding_preserved": reopened.immutable_object_binding(object_id) == Some(digest),
+        "unrelated_binding_preserved": reopened.immutable_object_binding(unrelated) == Some([0x55; 32]),
         "oceanmail_policy_in_core": false,
         "result": "pass"
     }))
@@ -1481,10 +1582,14 @@ fn conflict_cases() -> Result<Value, Box<dyn Error>> {
     };
 
     let object_id = ObjectId([0x44; 32]);
-    let mut registry = ImmutableObjectRegistry::default();
-    registry.observe(object_id, [0x55; 32])?;
-    let object_outcome = match registry.observe(object_id, [0x56; 32]) {
-        Err(ModelError::ImmutableObjectConflict) => "METADATA_CONFLICT",
+    let object_root = root.path().join("object-registry");
+    {
+        let mut registry = ProtocolStore::open(&object_root)?;
+        registry.observe_immutable_object(object_id, [0x55; 32])?;
+    }
+    let mut registry = ProtocolStore::open(&object_root)?;
+    let object_outcome = match registry.observe_immutable_object(object_id, [0x56; 32]) {
+        Err(StoreError::ImmutableObjectConflict) => "METADATA_CONFLICT",
         _ => "unexpected",
     };
 

@@ -29,7 +29,7 @@
     {
       "id": "V04",
       "name": "metadata-boundaries",
-      "result": "All required valid minima/maxima and one-past scalar/count/nesting cases are bundled.",
+      "result": "All required valid minima/maxima and one-past scalar/count/nesting cases are bundled, including an exact 65,537-decoded-octet aggregate.",
       "status": "pass"
     },
     {
@@ -95,7 +95,7 @@
     {
       "id": "V15",
       "name": "failure-code-state-effects",
-      "result": "All 13 codes with both advertised flags preserve scope and enforce bounded retry.",
+      "result": "All 13 codes with both advertised flags execute durable failure/retry and affected/unrelated representation-store transitions.",
       "status": "pass"
     }
   ],

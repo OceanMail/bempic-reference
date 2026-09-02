@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "f27d2086322c4dfaae2608e3fd4afcadfe0671d70bbccf7ae07543c05cd8544c",
+  "bundle_digest": "7fa71ac6cdc8e37fea6d23389f12a562f239da5d5f5c5c1e8a41e198e26e372b",
   "bundle_format_version": "0.1",
   "catalog_counts": {
     "blocked": 3,
@@ -27,9 +27,9 @@
   "extensions": [],
   "files": [
     {
-      "length": 3692,
+      "length": 3788,
       "path": "catalog.json",
-      "sha256": "23c8b1b766fcb33d987871b45e12eb15109a173d0640e695e1573ff76fdcea48"
+      "sha256": "aae39396a954182b94208ab6149d7cb634dcd62494b499c3b1a40008d128fedf"
     },
     {
       "length": 2390,
@@ -62,9 +62,9 @@
       "sha256": "44d5fe151a0addb65ac53c1074a5a112b19b97b1e7b8ef775a32f3a1dfd2275d"
     },
     {
-      "length": 79699,
+      "length": 90826,
       "path": "tranche3-evidence.json",
-      "sha256": "fb977f03181ca86081248e61c896ce0f5987e08aa54ffc3bb6d9aa6c68730e2e"
+      "sha256": "119a49084c028be50c254fe175e980019808dc01593ede6868e0b2ac6ad6accf"
     }
   ],
   "mandatory_catalog_status": "blocked-not-conformant",
