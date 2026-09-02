@@ -26,6 +26,7 @@ jobs:
       - run: cargo run -p bempic-conformance --release
       - run: cargo run -p bempic-conformance --release -- tranche2-measurements
       - run: cargo run -p bempic-conformance --release -- verify-compact-codec-evidence
+      - run: cargo run -p bempic-conformance --release -- verify-tranche3-evidence
       - run: cargo run -p bempic-cli -- demo
       - run: cargo run -p bempic-bench --release
 

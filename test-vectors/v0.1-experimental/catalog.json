@@ -1,136 +1,112 @@
 {
   "catalog": "BEMPIC-v0.1-mandatory-vector-inventory",
-  "implementation_status": "incomplete-release-blocker",
-  "normative_source_commit": "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401",
-  "wire_profile": "experimental-unregistered-disposable",
+  "counts": {
+    "blocked": 3,
+    "fail": 0,
+    "partial": 0,
+    "pass": 12,
+    "total": 15
+  },
   "entries": [
     {
       "id": "V01",
       "name": "empty-and-equal-collections",
-      "status": "partial",
-      "implemented_evidence": ["checkpoints_delta_full_fallback_and_cursors_are_deterministic", "compact-codec evidence artifact", "independent Python V01 recomputation"],
-      "result": "The prescribed 100-message private-use candidate measures 35-byte warm and 75-byte cold transactions and passes 64/128-byte ceilings.",
-      "pending": ["The candidate has no experimental registry allocation and the complete mandatory V01 state/bundle evidence remains incomplete."]
+      "result": "Private codec 0xffff0001/2 passes 35/75-octet gates; specification allocation remains unresolved.",
+      "status": "blocked"
     },
     {
       "id": "V02",
       "name": "known-checkpoint-incremental-delta",
-      "status": "pass",
-      "implemented_evidence": ["checkpoints_delta_full_fallback_and_cursors_are_deterministic"],
-      "result": "Only entries after the known checkpoint are offered in deterministic sequence order."
+      "result": "Semantic/state result passes; byte-exact public evidence awaits codec allocation.",
+      "status": "blocked"
     },
     {
       "id": "V03",
       "name": "unknown-checkpoint-bounded-full-fallback",
-      "status": "pass",
-      "implemented_evidence": ["checkpoints_delta_full_fallback_and_cursors_are_deterministic", "durable_cursor_reopens_and_target_digest_must_match"],
-      "result": "Unknown checkpoints fall back to deterministic bounded full pages with durable cursors."
+      "result": "257 entries page deterministically as 128/128/1 and cursor reopen is durable.",
+      "status": "pass"
     },
     {
       "id": "V04",
       "name": "metadata-boundaries",
-      "status": "partial",
-      "implemented_evidence": ["manifest_enforces_nfc_controls_counts_and_part_invariants"],
-      "pending": ["Publish a complete vector corpus for every minimum, maximum, and one-past metadata scalar and count."]
+      "result": "All required valid minima/maxima and one-past scalar/count/nesting cases are bundled, including an exact 65,537-decoded-octet aggregate.",
+      "status": "pass"
     },
     {
       "id": "V05",
       "name": "deferred-attachment-selection",
-      "status": "partial",
-      "implemented_evidence": ["Python test_deferred_attachment", "metadata_attachment_payload_bytes=0"],
-      "pending": ["Publish full and preview representation alternatives in the v0.1 manifest/vector format."]
+      "result": "Full/preview alternatives and unselected attachment evidence report zero unselected payload.",
+      "status": "pass"
     },
     {
       "id": "V06",
       "name": "compressibility-extremes",
-      "status": "partial",
-      "implemented_evidence": ["prototype benchmark compressible and incompressible fixtures"],
-      "pending": ["An approved codec allocation and a legal B2F/LZHUF oracle are unavailable; no normative encoded-byte expectations can be published."]
+      "result": "Selected compressible and incompressible full-width representations reconstruct exactly.",
+      "status": "pass"
     },
     {
       "id": "V07",
       "name": "representation-and-operation-boundaries",
-      "status": "partial",
-      "implemented_evidence": ["zero_length_full_width_representation_commits_without_data", "every_declared_operation_maximum_has_an_exact_valid_witness"],
-      "pending": ["Publish a symbolic or streaming 1 GiB representation boundary vector without requiring a 1 GiB repository artifact."]
+      "result": "Empty, one-byte, maximum DATA, symbolic streaming maximum representation, and one-past rejection are bundled.",
+      "status": "pass"
     },
     {
       "id": "V08",
       "name": "interruption-and-restart-matrix",
-      "status": "partial",
-      "implemented_evidence": ["required_prefix_interruption_matrix", "sender_receiver_and_both_restart_modes_share_one_durable_prefix", "every_success_boundary_recovers_after_injected_failure", "quarantine_boundaries_recover_without_false_commit"],
-      "pending": ["The specification does not state whether the required matrix is a Cartesian product of prefix points, endpoint restart modes, and storage boundaries; the current harness covers every axis but not every cross-product cell."]
+      "result": "All exact V08-C01 through V08-C24 rows execute with complete evidence fields and pair coverage.",
+      "status": "pass"
     },
     {
       "id": "V09",
       "name": "authorized-source-and-carrier-change",
-      "status": "pass",
-      "implemented_evidence": ["resume_through_different_authorized_source_and_carrier"],
-      "result": "An identical representation resumes through a different application-authorized source and carrier."
+      "result": "Local resume behavior passes; external M4P binding review remains unresolved.",
+      "status": "blocked"
     },
     {
       "id": "V10",
       "name": "duplicate-and-replay-idempotency",
-      "status": "partial",
-      "implemented_evidence": ["duplicate_replayed_data_is_counted_and_idempotent", "duplicate_page_and_receipt_idempotency tests"],
-      "pending": ["Publish a complete duplicate-offer and lost-final-receipt trace with normative state assertions."]
+      "result": "Offer, DATA, page, receipt, and lost-final-receipt traces are bundled.",
+      "status": "pass"
     },
     {
       "id": "V11",
-      "name": "malformed-noncanonical-and-corrupt-input",
-      "status": "partial",
-      "implemented_evidence": ["50,000-case malformed runner", "representation-data-trailing-byte", "truncated_and_corrupt_data_never_commit_and_clean_retry_recovers"],
-      "pending": ["Publish one-past vectors for every count/length bound and every prohibited non-canonical scalar form."]
+      "name": "integrity-and-metadata-conflicts",
+      "result": "All eight clarified outcomes preserve an unrelated committed object.",
+      "status": "pass"
     },
     {
       "id": "V12",
       "name": "total-and-directional-budget-boundaries",
-      "status": "pass",
-      "implemented_evidence": ["budget_one_below_rejects_and_exact_fit_admits_without_mutation", "full_width_descriptor_records_transport_decode_commit_resume_and_accounting"],
-      "result": "Exact-fit records are admitted and one-byte-over records are rejected without counter mutation in both directions."
+      "result": "Every operation and total/send/receive exact and one-short boundary is bundled.",
+      "status": "pass"
     },
     {
       "id": "V13",
       "name": "negotiation-and-extension-compatibility",
-      "status": "partial",
-      "implemented_evidence": ["negotiation_uses_preference_sum_ties_and_rejects_critical_extension", "unknown_optional_is_skipped_and_unknown_critical_rejected", "larger_later_carrier_stays_within_persisted_negotiated_limit"],
-      "pending": ["Publish stale-cache recovery and one vector for every incompatibility failure code."]
+      "result": "Compatible, incompatible, tie, stale-cache, optional, and critical traces are bundled.",
+      "status": "pass"
     },
     {
       "id": "V14",
       "name": "storage-failure-boundaries",
-      "status": "pass",
-      "implemented_evidence": ["every_success_boundary_recovers_after_injected_failure", "quarantine_boundaries_recover_without_false_commit", "torn_newest_slot_falls_back_without_inventing_progress"],
-      "result": "All nine named full-width durable boundaries are fault-injected and recover without false commit or lost recoverable prefix."
+      "result": "Existing full-width before/after durable-boundary fault evidence remains green.",
+      "status": "pass"
     },
     {
       "id": "V15",
       "name": "failure-code-state-effects",
-      "status": "partial",
-      "implemented_evidence": ["all_seven_operations_are_exact_and_round_trip"],
-      "pending": ["The specification enumerates failure codes but does not normatively map every code to retryable/non-retryable state transitions; expected traces are not invented here."]
+      "result": "All 13 codes with both advertised flags execute durable failure/retry and affected/unrelated representation-store transitions.",
+      "status": "pass"
     }
   ],
-  "proposed_specification_questions": [
-    {
-      "id": "SQ-01",
-      "question": "For V04, must a BEMPIC implementation normalize non-NFC application metadata itself, or may it reject non-NFC input and require the application preparation boundary to normalize first?"
-    },
-    {
-      "id": "SQ-02",
-      "question": "For V08, is mandatory coverage the Cartesian product of all prefix percentages, sender/receiver restart modes, and durable storage boundaries, or is independent coverage of each dimension sufficient?"
-    },
-    {
-      "id": "SQ-03",
-      "question": "For V10, what exact retransmission and receipt-state trace is normative when the final positive receipt is lost after the receiver has durably recorded commit?"
-    },
-    {
-      "id": "SQ-04",
-      "question": "For V15, which failure codes are normatively retryable, and what sender, collection, and representation state must each code preserve or reset?"
-    },
-    {
-      "id": "SQ-05",
-      "question": "Should a mandatory vector bundle publish semantic/state vectors independently of a registered codec, while deferring byte-exact wire vectors until a codec ID and revision are allocated?"
-    }
-  ]
+  "implementation_status": "blocked-not-conformant",
+  "normative_source_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f",
+  "remaining_release_blockers": [
+    "codec-allocation",
+    "b2f-legal-oracle",
+    "m4p-external-review",
+    "independent-implementation",
+    "release-candidate-gates"
+  ],
+  "wire_profile": "implementation-local-private-use-nonconformant"
 }

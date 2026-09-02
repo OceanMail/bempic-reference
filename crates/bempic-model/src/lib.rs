@@ -306,7 +306,7 @@ mod tests {
 }
 
 /// Normative-generation semantic types derived from specification commit
-/// `c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401`.
+/// `10fc1ddca0b16c974d29a24b6ff2bef189663a1f`.
 ///
 /// The root-level types above remain solely for the transitional Python-oracle
 /// compatibility profile. New conformance work uses this module's full-width
@@ -314,13 +314,13 @@ mod tests {
 pub mod v01 {
     use serde::{Deserialize, Serialize};
     use sha2::{Digest as _, Sha256};
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fmt;
     use thiserror::Error;
     use unicode_normalization::UnicodeNormalization as _;
 
     /// Specification commit implemented by these semantic definitions.
-    pub const SPECIFICATION_COMMIT: &str = "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401";
+    pub const SPECIFICATION_COMMIT: &str = "10fc1ddca0b16c974d29a24b6ff2bef189663a1f";
     /// Registered core-operation schema fingerprint, revision 2.
     pub const CORE_SCHEMA_FINGERPRINT_HEX: &str =
         "c4a686e7e9c6a40a5f187259a376b26cfc1d355179fd9fff487e105aeeac7302";
@@ -509,6 +509,7 @@ pub mod v01 {
     impl MessageManifest {
         /// Enforce all model bounds and cross-field invariants.
         pub fn validate(&self) -> Result<(), ModelError> {
+            validate_manifest_octet_length(manifest_decoded_octets(self)?)?;
             validate_metadata(&self.sender, 1, MAX_ADDRESS_OCTETS, "sender")?;
             if self.recipients.is_empty() || self.recipients.len() > MAX_RECIPIENTS {
                 return Err(ModelError::CountOutOfBounds("recipients"));
@@ -535,6 +536,226 @@ pub mod v01 {
                 return Err(ModelError::BodyCount);
             }
             Ok(())
+        }
+    }
+
+    /// Exact decoded scalar storage represented by a message manifest.
+    ///
+    /// The formula includes every fixed-width scalar and every variable-length
+    /// octet/string member, including representation descriptors. Container
+    /// implementation overhead is deliberately excluded so the result is
+    /// deterministic across implementations.
+    pub fn manifest_decoded_octets(manifest: &MessageManifest) -> Result<usize, ModelError> {
+        fn add(total: &mut usize, value: usize) -> Result<(), ModelError> {
+            *total = total
+                .checked_add(value)
+                .ok_or(ModelError::AllocationSizeOverflow)?;
+            Ok(())
+        }
+
+        let mut total = 32 + 8;
+        add(&mut total, manifest.sender.len())?;
+        for recipient in &manifest.recipients {
+            add(&mut total, recipient.len())?;
+        }
+        if let Some(subject) = &manifest.subject {
+            add(&mut total, subject.len())?;
+        }
+        for part in &manifest.parts {
+            add(&mut total, 4 + 1)?;
+            add(&mut total, part.media_type.len())?;
+            if let Some(filename) = &part.filename {
+                add(&mut total, filename.len())?;
+            }
+            for representation in &part.representations {
+                add(&mut total, 32 + 32 + 4 + 4)?;
+                add(&mut total, representation.codec_parameters.len())?;
+                add(&mut total, 8 + 1)?;
+                if representation.decoded_length.is_some() {
+                    add(&mut total, 8)?;
+                }
+                add(&mut total, 32 + 1)?;
+                if representation.usefulness_expiry.is_some() {
+                    add(&mut total, 8)?;
+                }
+            }
+        }
+        Ok(total)
+    }
+
+    /// Stable per-scope orientation for normative semantic-byte accounting.
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum SemanticDirection {
+        /// Endpoint A to endpoint B.
+        Send,
+        /// Endpoint B to endpoint A.
+        Receive,
+    }
+
+    /// Normative directional `semantic_bytes` counters for one endpoint-bound scope.
+    ///
+    /// The scope owner must bind endpoint A and endpoint B once. A selected
+    /// representation contributes at most once in each direction, even when it
+    /// is contacted, replayed, overlapped, retried, or resumed multiple times.
+    #[derive(Clone, Debug, Default, Eq, PartialEq)]
+    pub struct SemanticAccounting {
+        semantic_bytes_send: u64,
+        semantic_bytes_receive: u64,
+        selections: BTreeMap<(SemanticDirection, RepresentationId), u64>,
+    }
+
+    impl SemanticAccounting {
+        /// Record the first accepted application selection in this scope.
+        ///
+        /// Returns `true` only when the `(direction, representation_id)` key is
+        /// new. Repeating a key with a different semantic value fails closed.
+        pub fn record_selection(
+            &mut self,
+            direction: SemanticDirection,
+            representation_id: RepresentationId,
+            semantic_octets: u64,
+        ) -> Result<bool, ModelError> {
+            let key = (direction, representation_id);
+            if let Some(previous) = self.selections.get(&key) {
+                return if *previous == semantic_octets {
+                    Ok(false)
+                } else {
+                    Err(ModelError::SemanticSelectionConflict)
+                };
+            }
+            self.semantic_bytes_send
+                .checked_add(self.semantic_bytes_receive)
+                .and_then(|total| total.checked_add(semantic_octets))
+                .ok_or(ModelError::SemanticBytesOverflow)?;
+            let counter = match direction {
+                SemanticDirection::Send => &mut self.semantic_bytes_send,
+                SemanticDirection::Receive => &mut self.semantic_bytes_receive,
+            };
+            *counter = counter
+                .checked_add(semantic_octets)
+                .ok_or(ModelError::SemanticBytesOverflow)?;
+            self.selections.insert(key, semantic_octets);
+            Ok(true)
+        }
+
+        /// Endpoint-A-to-endpoint-B semantic octets.
+        pub const fn semantic_bytes_send(&self) -> u64 {
+            self.semantic_bytes_send
+        }
+
+        /// Endpoint-B-to-endpoint-A semantic octets.
+        pub const fn semantic_bytes_receive(&self) -> u64 {
+            self.semantic_bytes_receive
+        }
+
+        /// Sum of both stable directions.
+        pub const fn semantic_bytes(&self) -> u64 {
+            self.semantic_bytes_send + self.semantic_bytes_receive
+        }
+
+        /// Number of distinct directional selection keys counted in the scope.
+        pub fn counted_selections(&self) -> usize {
+            self.selections.len()
+        }
+    }
+
+    /// Compute normative semantic octets for a decoded message manifest.
+    ///
+    /// Only application fields contribute. The representations container and
+    /// all descriptor members contribute zero, including IDs, fingerprints,
+    /// codec fields, lengths, digests, and expiry.
+    pub fn message_manifest_semantic_octets(manifest: &MessageManifest) -> Result<u64, ModelError> {
+        manifest.validate()?;
+        let mut total =
+            32_u64 // object_id octet string
+                .checked_add(8) // created_at u64
+                .and_then(|value| value.checked_add(manifest.sender.len() as u64))
+                .ok_or(ModelError::SemanticBytesOverflow)?;
+        for recipient in &manifest.recipients {
+            total = total
+                .checked_add(recipient.len() as u64)
+                .ok_or(ModelError::SemanticBytesOverflow)?;
+        }
+        if let Some(subject) = &manifest.subject {
+            total = total
+                .checked_add(subject.len() as u64)
+                .ok_or(ModelError::SemanticBytesOverflow)?;
+        }
+        for part in &manifest.parts {
+            total = total
+                .checked_add(4) // part_id u32
+                .and_then(|value| value.checked_add(1)) // role enum
+                .and_then(|value| value.checked_add(part.media_type.len() as u64))
+                .ok_or(ModelError::SemanticBytesOverflow)?;
+            if let Some(filename) = &part.filename {
+                total = total
+                    .checked_add(filename.len() as u64)
+                    .ok_or(ModelError::SemanticBytesOverflow)?;
+            }
+        }
+        Ok(total)
+    }
+
+    /// Compute semantic octets for an opaque decoded binary value.
+    pub fn opaque_semantic_octets(decoded_value: &[u8]) -> Result<u64, ModelError> {
+        u64::try_from(decoded_value.len()).map_err(|_| ModelError::SemanticBytesOverflow)
+    }
+
+    /// Reject an input envelope before decoding or a decoded aggregate before mutation.
+    ///
+    /// Byte-oriented decoders must call this with the input envelope length
+    /// before constructing the value tree. `MessageManifest::validate` calls it
+    /// again with `manifest_decoded_octets` before any durable mutation.
+    pub const fn validate_manifest_octet_length(length: usize) -> Result<(), ModelError> {
+        if length > MAX_MANIFEST_OCTETS {
+            Err(ModelError::BoundExceeded("manifest_octets"))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Result of observing immutable object semantics at the protocol boundary.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    pub enum ImmutableObservation {
+        /// This object identifier was not previously bound in the registry.
+        New,
+        /// The object identifier was already bound to identical immutable semantics.
+        Duplicate,
+    }
+
+    /// Policy-free value model for immutable object-ID conflict detection.
+    ///
+    /// Applications define and normalize the immutable-semantics digest. BEMPIC
+    /// stores only the opaque 32-octet binding and never overwrites a conflict.
+    /// Durable implementations use `bempic_store::v01::ProtocolStore`.
+    #[derive(Clone, Debug, Default, Eq, PartialEq)]
+    pub struct ImmutableObjectRegistry {
+        bindings: BTreeMap<ObjectId, [u8; 32]>,
+    }
+
+    impl ImmutableObjectRegistry {
+        /// Observe one object binding idempotently without mutating unrelated state.
+        pub fn observe(
+            &mut self,
+            object_id: ObjectId,
+            immutable_semantics_digest: [u8; 32],
+        ) -> Result<ImmutableObservation, ModelError> {
+            match self.bindings.get(&object_id) {
+                Some(existing) if existing == &immutable_semantics_digest => {
+                    Ok(ImmutableObservation::Duplicate)
+                }
+                Some(_) => Err(ModelError::ImmutableObjectConflict),
+                None => {
+                    self.bindings.insert(object_id, immutable_semantics_digest);
+                    Ok(ImmutableObservation::New)
+                }
+            }
+        }
+
+        /// Return the exact opaque binding for inspection or persistence.
+        pub fn binding(&self, object_id: ObjectId) -> Option<[u8; 32]> {
+            self.bindings.get(&object_id).copied()
         }
     }
 
@@ -744,6 +965,18 @@ pub mod v01 {
         /// Published fingerprint was not exactly 32 lowercase hexadecimal octets.
         #[error("schema fingerprint hexadecimal value is invalid")]
         FingerprintHex,
+        /// A repeated directional selection supplied inconsistent semantic content.
+        #[error("directional semantic selection conflicts with its first value")]
+        SemanticSelectionConflict,
+        /// Semantic-byte arithmetic exceeded the u64 evidence domain.
+        #[error("semantic byte count overflow")]
+        SemanticBytesOverflow,
+        /// Decoded allocation arithmetic exceeded the platform size domain.
+        #[error("decoded allocation size overflow")]
+        AllocationSizeOverflow,
+        /// An object ID was reused for different opaque immutable semantics.
+        #[error("object ID conflicts with its immutable semantics binding")]
+        ImmutableObjectConflict,
     }
 
     #[cfg(test)]
@@ -771,6 +1004,138 @@ pub mod v01 {
             let mut changed = prepared.clone();
             changed.descriptor.codec_revision = 2;
             assert!(!changed.verify());
+        }
+
+        #[test]
+        fn semantic_bytes_exclude_descriptors_and_count_directional_selection_once() {
+            let representation = binary(b"encoded bytes do not count".to_vec());
+            let manifest = MessageManifest {
+                object_id: ObjectId([0x11; 32]),
+                created_at: 1,
+                sender: "a@example.test".to_owned(),
+                recipients: vec!["b@example.test".to_owned()],
+                subject: Some("Hi".to_owned()),
+                parts: vec![PartDescriptor {
+                    part_id: 0,
+                    role: PartRole::Body,
+                    media_type: "text/plain".to_owned(),
+                    filename: None,
+                    representations: vec![representation.descriptor.clone()],
+                }],
+            };
+            let expected = 32 + 8 + 14 + 14 + 2 + 4 + 1 + 10;
+            assert_eq!(message_manifest_semantic_octets(&manifest), Ok(expected));
+
+            let mut changed = manifest.clone();
+            changed.parts[0].representations[0] = binary(vec![0xff; 100]).descriptor;
+            assert_eq!(message_manifest_semantic_octets(&changed), Ok(expected));
+
+            let mut accounting = SemanticAccounting::default();
+            let id = representation.descriptor.representation_id;
+            assert_eq!(
+                accounting.record_selection(SemanticDirection::Send, id, expected),
+                Ok(true)
+            );
+            assert_eq!(
+                accounting.record_selection(SemanticDirection::Send, id, expected),
+                Ok(false)
+            );
+            assert_eq!(
+                accounting.record_selection(SemanticDirection::Receive, id, 7),
+                Ok(true)
+            );
+            assert_eq!(accounting.semantic_bytes_send(), expected);
+            assert_eq!(accounting.semantic_bytes_receive(), 7);
+            assert_eq!(accounting.semantic_bytes(), expected + 7);
+            assert_eq!(accounting.counted_selections(), 2);
+            assert_eq!(
+                accounting.record_selection(SemanticDirection::Send, id, expected + 1),
+                Err(ModelError::SemanticSelectionConflict)
+            );
+
+            let mut overflow = SemanticAccounting::default();
+            assert_eq!(
+                overflow.record_selection(SemanticDirection::Send, id, u64::MAX),
+                Ok(true)
+            );
+            assert_eq!(
+                overflow.record_selection(SemanticDirection::Receive, id, 1),
+                Err(ModelError::SemanticBytesOverflow)
+            );
+            assert_eq!(overflow.semantic_bytes(), u64::MAX);
+            assert_eq!(overflow.counted_selections(), 1);
+        }
+
+        #[test]
+        fn immutable_object_registry_is_idempotent_and_preserves_unrelated_bindings() {
+            let first = ObjectId([1; 32]);
+            let unrelated = ObjectId([2; 32]);
+            let mut registry = ImmutableObjectRegistry::default();
+            assert_eq!(
+                registry.observe(first, [3; 32]),
+                Ok(ImmutableObservation::New)
+            );
+            assert_eq!(
+                registry.observe(unrelated, [4; 32]),
+                Ok(ImmutableObservation::New)
+            );
+            assert_eq!(
+                registry.observe(first, [3; 32]),
+                Ok(ImmutableObservation::Duplicate)
+            );
+            assert_eq!(
+                registry.observe(first, [5; 32]),
+                Err(ModelError::ImmutableObjectConflict)
+            );
+            assert_eq!(registry.binding(first), Some([3; 32]));
+            assert_eq!(registry.binding(unrelated), Some([4; 32]));
+        }
+
+        #[test]
+        fn manifest_allocation_bound_rejects_one_past() {
+            assert_eq!(validate_manifest_octet_length(MAX_MANIFEST_OCTETS), Ok(()));
+            assert_eq!(
+                validate_manifest_octet_length(MAX_MANIFEST_OCTETS + 1),
+                Err(ModelError::BoundExceeded("manifest_octets"))
+            );
+
+            let descriptor = binary(Vec::new()).descriptor;
+            let mut manifest = MessageManifest {
+                object_id: ObjectId::fixture(b"aggregate-bound"),
+                created_at: 0,
+                sender: "s".into(),
+                recipients: vec!["r".into()],
+                subject: None,
+                parts: (0..MAX_PARTS)
+                    .map(|part_id| PartDescriptor {
+                        part_id: u32::try_from(part_id).unwrap(),
+                        role: if part_id == 0 {
+                            PartRole::Body
+                        } else {
+                            PartRole::Attachment
+                        },
+                        media_type: "a/b".into(),
+                        filename: (part_id != 0).then(|| "f".into()),
+                        representations: vec![descriptor.clone()],
+                    })
+                    .collect(),
+            };
+            let baseline = manifest_decoded_octets(&manifest).unwrap();
+            let mut remaining = MAX_MANIFEST_OCTETS + 1 - baseline;
+            for part in &mut manifest.parts {
+                let take = remaining.min(MAX_CODEC_PARAMETER_OCTETS);
+                part.representations[0].codec_parameters = vec![0; take];
+                remaining -= take;
+            }
+            assert_eq!(remaining, 0);
+            assert_eq!(
+                manifest_decoded_octets(&manifest),
+                Ok(MAX_MANIFEST_OCTETS + 1)
+            );
+            assert_eq!(
+                manifest.validate(),
+                Err(ModelError::BoundExceeded("manifest_octets"))
+            );
         }
 
         #[test]

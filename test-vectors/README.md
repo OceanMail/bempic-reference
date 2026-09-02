@@ -12,22 +12,22 @@ cargo run -p bempic-cli -- vectors
 ```
 
 The separate `v0.1-experimental/` bundle targets specification commit
-`c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401`, carries the exact RFC 8785 schema
-fingerprints and explicit `REPRESENTATION_DATA` selection vector, and is
-verified independently with:
+`10fc1ddca0b16c974d29a24b6ff2bef189663a1f`, carries exact RFC 8785 schema
+fingerprints, full-width semantic fixtures, and executed V01–V15 evidence, and
+is verified independently with:
 
 ```bash
 python scripts/verify_conformance.py
 ```
 
-Its `mandatory_catalog_status` is `incomplete-release-blocker`. Expected bytes
-remain an unregistered experimental codec revision and do not freeze a wire
-format.
+Its `mandatory_catalog_status` is `blocked-not-conformant`: twelve rows pass and
+V01, V02, and V09 remain blocked by codec allocation or external M4P review.
+Expected bytes remain a private experimental codec revision and do not freeze a
+wire format.
 
-`v0.1-experimental/catalog.json` inventories V01–V15. A `pass` names executable
-evidence; `partial`, `fail`, and `blocked` entries retain an explicit pending
-inventory. Proposed specification questions are kept in the same
-machine-readable document so ambiguous mandatory behavior is never guessed.
+`v0.1-experimental/catalog.json` inventories V01–V15 and the deterministic
+`tranche3-evidence.json` records semantic values, exact state traces, and all
+remaining blockers without inventing registry or external-review outcomes.
 
 `v0.1-compact-candidate/` is a separate private-use revision-2 evidence pack.
 It contains exact valid, boundary, malformed, truncated, noncanonical,

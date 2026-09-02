@@ -1,6 +1,6 @@
 {
   "deterministic_seed": 4775307987118129153,
-  "duration_ms": 73,
+  "duration_ms": 75,
   "compact_exact_size_property_cases": 4100,
   "compact_round_trip_failures": 0,
   "compact_structured_malformed_cases": 175,
@@ -14,7 +14,7 @@
   "round_trip_failures": 0,
   "schema": "bempic-conformance-fuzz-report-v0.1",
   "seed_corpus_sha256": "1442397586ab6af7c58543f7acd5d29d9812067dbc8bf8ff0ae1562b4b968ad7",
-  "specification_commit": "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401",
+  "specification_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f",
   "structured_malformed_cases": 187,
   "tool_name": "bempic-deterministic-malformed-runner",
   "tool_version": "0.1.0",

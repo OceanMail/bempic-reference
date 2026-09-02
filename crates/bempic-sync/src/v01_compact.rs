@@ -18,6 +18,20 @@ use std::collections::BTreeSet;
 pub const PRIVATE_CODEC_ID: u32 = 0xffff_0001;
 /// Incompatible private candidate revision.
 pub const PRIVATE_CODEC_REVISION: u32 = 2;
+/// Explicit codec identity used by allocation-ready evidence generation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CodecIdentity {
+    /// Registry or private-use codec identifier.
+    pub id: u32,
+    /// Incompatible codec revision.
+    pub revision: u32,
+}
+
+/// Current implementation-local identity; it is not a registry allocation.
+pub const PRIVATE_CODEC_IDENTITY: CodecIdentity = CodecIdentity {
+    id: PRIVATE_CODEC_ID,
+    revision: PRIVATE_CODEC_REVISION,
+};
 /// Maximum complete record accepted by the candidate decoder.
 pub const MAX_COMPACT_RECORD_OCTETS: usize = MAX_EXPERIMENTAL_RECORD_OCTETS;
 
@@ -62,12 +76,21 @@ pub struct MaximumSizeAnalysis {
 /// Exact single-tuple capability value assigned the static profile alias.
 #[must_use]
 pub fn profile_capabilities() -> Capabilities {
+    profile_capabilities_for(PRIVATE_CODEC_IDENTITY)
+}
+
+/// Exact aliased capability value for an explicitly supplied allocation.
+///
+/// This helper does not allocate an ID. It lets a future specification-owned
+/// allocation regenerate vectors without source edits.
+#[must_use]
+pub fn profile_capabilities_for(identity: CodecIdentity) -> Capabilities {
     Capabilities {
         protocol_generations: vec![ProtocolGeneration { major: 0, minor: 1 }],
         schema_fingerprints: vec![PROFILE_SCHEMA_FINGERPRINT],
         codec_preferences: vec![CodecPreference {
-            codec_id: PRIVATE_CODEC_ID,
-            revision: PRIVATE_CODEC_REVISION,
+            codec_id: identity.id,
+            revision: identity.revision,
             schema_fingerprint: PROFILE_SCHEMA_FINGERPRINT,
         }],
         max_operation_octets: 1_048_576,
@@ -102,7 +125,16 @@ pub const fn maximum_size_analysis(kind: OperationKind) -> MaximumSizeAnalysis {
 
 /// Exact encoded size without trial serialization.
 pub fn exact_encoded_size(record: &Record, context: Context<'_>) -> Result<usize, Error> {
-    let body_size = exact_body_size(record, context)?;
+    exact_encoded_size_for(record, context, PRIVATE_CODEC_IDENTITY)
+}
+
+/// Exact encoded size for an explicitly supplied codec identity.
+pub fn exact_encoded_size_for(
+    record: &Record,
+    context: Context<'_>,
+    identity: CodecIdentity,
+) -> Result<usize, Error> {
+    let body_size = exact_body_size(record, context, identity)?;
     let size = 1 + varint_size(body_size) + body_size;
     if size > MAX_COMPACT_RECORD_OCTETS {
         Err(Error::LimitExceeded("compact operation size"))
@@ -113,7 +145,16 @@ pub fn exact_encoded_size(record: &Record, context: Context<'_>) -> Result<usize
 
 /// Encode one deterministic complete candidate record.
 pub fn encode(record: &Record, context: Context<'_>) -> Result<Vec<u8>, Error> {
-    let body_size = exact_body_size(record, context)?;
+    encode_for(record, context, PRIVATE_CODEC_IDENTITY)
+}
+
+/// Encode for an explicitly supplied identity without assigning that identity.
+pub fn encode_for(
+    record: &Record,
+    context: Context<'_>,
+    identity: CodecIdentity,
+) -> Result<Vec<u8>, Error> {
+    let body_size = exact_body_size(record, context, identity)?;
     let size = 1 + varint_size(body_size) + body_size;
     if size > MAX_COMPACT_RECORD_OCTETS {
         return Err(Error::LimitExceeded("compact operation size"));
@@ -121,7 +162,7 @@ pub fn encode(record: &Record, context: Context<'_>) -> Result<Vec<u8>, Error> {
     let mut output = Vec::with_capacity(size);
     output.push(HEADER_PREFIX | operation_tag(&record.operation));
     put_varint(&mut output, body_size as u64);
-    match canonical_form(record, context) {
+    match canonical_form(record, context, identity) {
         Form::ProfileCapabilities => output.push(PROFILE_CAPABILITIES_FORM),
         Form::CachedSummary(summary) => {
             output.push(CACHED_SUMMARY_FORM);
@@ -150,6 +191,16 @@ pub fn decode(
     supported_extensions: &BTreeSet<u32>,
     context: Context<'_>,
 ) -> Result<Record, Error> {
+    decode_for(bytes, supported_extensions, context, PRIVATE_CODEC_IDENTITY)
+}
+
+/// Strictly decode using the explicitly selected profile identity.
+pub fn decode_for(
+    bytes: &[u8],
+    supported_extensions: &BTreeSet<u32>,
+    context: Context<'_>,
+    identity: CodecIdentity,
+) -> Result<Record, Error> {
     if bytes.len() < 3 {
         return Err(Error::Truncated);
     }
@@ -173,7 +224,7 @@ pub fn decode(
     position += 1;
     match (tag, form) {
         (1, PROFILE_CAPABILITIES_FORM) if position == bytes.len() => Ok(Record {
-            operation: Operation::Capabilities(profile_capabilities()),
+            operation: Operation::Capabilities(profile_capabilities_for(identity)),
             extensions: Vec::new(),
         }),
         (2, CACHED_SUMMARY_FORM) => {
@@ -222,7 +273,7 @@ pub fn decode(
             if record.extensions.is_empty()
                 && matches!(
                     &record.operation,
-                    Operation::Capabilities(value) if *value == profile_capabilities()
+                    Operation::Capabilities(value) if *value == profile_capabilities_for(identity)
                 )
             {
                 return Err(Error::NonCanonical("profile capabilities alias"));
@@ -244,10 +295,14 @@ enum Form<'a> {
     Generic,
 }
 
-fn canonical_form<'a>(record: &'a Record, context: Context<'_>) -> Form<'a> {
+fn canonical_form<'a>(
+    record: &'a Record,
+    context: Context<'_>,
+    identity: CodecIdentity,
+) -> Form<'a> {
     if record.extensions.is_empty() {
         match &record.operation {
-            Operation::Capabilities(value) if *value == profile_capabilities() => {
+            Operation::Capabilities(value) if *value == profile_capabilities_for(identity) => {
                 return Form::ProfileCapabilities;
             }
             Operation::Summary(summary) if context.cached_summary == Some(summary) => {
@@ -260,9 +315,13 @@ fn canonical_form<'a>(record: &'a Record, context: Context<'_>) -> Form<'a> {
     Form::Generic
 }
 
-fn exact_body_size(record: &Record, context: Context<'_>) -> Result<usize, Error> {
+fn exact_body_size(
+    record: &Record,
+    context: Context<'_>,
+    identity: CodecIdentity,
+) -> Result<usize, Error> {
     let legacy_size = record.exact_encoded_size()?;
-    Ok(match canonical_form(record, context) {
+    Ok(match canonical_form(record, context, identity) {
         Form::ProfileCapabilities => 1,
         Form::CachedSummary(_) => 1 + 32,
         Form::FullSummary(summary) => {
@@ -444,6 +503,25 @@ mod tests {
             Err(Error::Malformed("cached summary binding"))
         );
         assert!(decode(&cold_bytes, &empty, warm_context).is_err());
+    }
+
+    #[test]
+    fn explicit_identity_regenerates_profile_alias_without_allocating_an_id() {
+        let identity = CodecIdentity {
+            id: 0x8000_0042,
+            revision: 9,
+        };
+        let record = Record {
+            operation: Operation::Capabilities(profile_capabilities_for(identity)),
+            extensions: Vec::new(),
+        };
+        let bytes = encode_for(&record, Context::default(), identity).unwrap();
+        assert_eq!(bytes.len(), 3);
+        assert_eq!(
+            decode_for(&bytes, &BTreeSet::new(), Context::default(), identity).unwrap(),
+            record
+        );
+        assert_ne!(identity, PRIVATE_CODEC_IDENTITY);
     }
 
     #[test]

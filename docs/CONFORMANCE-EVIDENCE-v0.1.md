@@ -1,7 +1,7 @@
 # BEMPIC v0.1 conformance evidence matrix
 
-Specification authority: `C:\Projects\OceanMail\bempic`, merge commit
-`c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401`.
+Specification authority: `Gordonfive/bempic`, merge commit
+`10fc1ddca0b16c974d29a24b6ff2bef189663a1f`.
 
 Implementation status: **blocked; no BEMPIC v0.1.0 conformance claim**. The
 machine-readable authority for exact requirement text, evidence, gaps, tool
@@ -21,10 +21,10 @@ Status meanings:
 
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
-| SEM-01 | partial | v0.1 model and strict reader enforce principal bounds; exhaustive field/count/nesting allocation vectors remain incomplete. |
-| SEM-02 | partial | NFC/control validation and deterministic preparation are tested; the library rejects rather than normalizes non-NFC application input. |
+| SEM-01 | partial | Model validation rejects the exact 65,537-decoded-octet V04 aggregate and every other V04/V07 one-past case before durable mutation. A conforming manifest decoder does not yet invoke the input-envelope guard before constructing the value tree. |
+| SEM-02 | pass | BEMPIC validates normalized input; the pinned OceanMail fixture proves NFC preparation at the application boundary without moving policy into core. |
 | SEM-03 | pass | Rust and independent RFC 8785 Python verification reproduce all published fingerprints, including core `c4a686e7…`, and full representation IDs. |
-| SEM-04 | partial | Representation/collection conflicts fail closed; no durable cross-manifest object-ID semantic registry exists. |
+| SEM-04 | pass | The two-slot protocol store reopens the opaque immutable-object bindings, accepts identical repeats, rejects conflicts without overwrite, and preserves unrelated bindings; V11 publishes the trace. |
 | SEM-05 | pass | Python oracle tests and benchmark report zero unselected/deferred attachment payload. |
 | SEM-06 | pass | Equal checkpoint, known delta, and bounded unknown full fallback are implemented and tested. |
 | SEM-07 | pass | Two-slot protocol storage retains cursors and rejects target-digest mismatch. |
@@ -40,8 +40,8 @@ Status meanings:
 | SEM-17 | partial | Four receipt meanings and idempotency IDs exist; application-profile state integration is absent. |
 | SEM-18 | pass | Highest identical generation and preference-sum schema/codec selection with deterministic tie-breaks is tested. |
 | SEM-19 | pass | Unknown optional extensions are skipped and critical ones reject before return/mutation. |
-| SEM-20 | partial | B1 has 50,000 arbitrary, 187 structured malformed, and 4,100 property cases; the compact candidate reuses the 50,000-case stream and adds 175 structured plus 4,100 exact-size cases. All have zero findings; the mandatory malformed catalog remains incomplete. |
-| SEM-21 | partial | Stores are scoped per collection/representation; no complete hostile multi-object trace is published. |
+| SEM-20 | pass | B1/compact malformed/property runs remain zero-finding; V04/V07/V11 add the complete clarified allocation, count, nesting, range, integrity, and conflict cases. |
+| SEM-21 | pass | Every V11/V15 failure is scoped; V15 executes durable failure/retry and affected-representation transitions, and the independent verifier confirms the unrelated committed representation remains exactly reconstructable. |
 | SEM-22 | pass | Contact loss and budget exhaustion remain resumable simulator pauses. |
 | SEM-23 | pass | Opaque carrier and mock M4P adapter contain no routing, TTL, fragment, deduplication, or link reliability state. |
 
@@ -58,9 +58,9 @@ Status meanings:
 | CODEC-07 | pass | Candidate proof terms and reaching-witness digests cover all seven operations. |
 | CODEC-08 | pass | Explicit-context encoding is deterministic; compact forms, minimal varints, cache use, and inherited fields decode strictly. |
 | CODEC-09 | pass | Optional/critical extension behavior is executable. |
-| CODEC-10 | partial | Readers check lengths before allocation and the outer one-past vector passes; exhaustive inherited count/nesting vectors remain absent. |
-| CODEC-11 | fail | The compact pack covers every requested vector category, but the mandatory V01–V15 byte/state bundle remains incomplete. |
-| CODEC-12 | partial | Independent Python verifies the compact pack and legacy bundle; mandatory V01–V15 coverage remains incomplete. |
+| CODEC-10 | pass | Strict readers, outer one-past, and the V04/V07 scalar/count/nesting/allocation cases reject before durable mutation. |
+| CODEC-11 | partial | Twelve mandatory rows pass; V01/V02 public bytes remain blocked on allocation and V09 on external M4P review. |
+| CODEC-12 | pass | Independent Python reproduces the bundle digest, schemas, semantic values, full IDs, trace digests, compact forms, and V08/V12/V15 inventories. |
 
 ## Persistence and crash cases
 
@@ -79,12 +79,12 @@ Status meanings:
 
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
-| ACCOUNT-01 | partial | The full-width artifact has directional BEMPIC/carrier, payload/useful/duplicate, and labeled unavailable link cost; normative `semantic_bytes` and a full-width manifest corpus remain absent. |
+| ACCOUNT-01 | pass | Stable endpoint bindings and first-selection keys produce 148 send + 3 receive = 151 semantic octets; the integrated 2,048-octet scope publishes all 18 required counters. |
 | ACCOUNT-02 | pass | Python quote error is zero and Rust exact-size properties agree. |
 | ACCOUNT-03 | pass | Total and directional admission is atomic and integrated into full-width carrier submission. |
 | ACCOUNT-04 | pass | Unselected payload is zero. |
 | ACCOUNT-05 | pass | First body DATA begins after 747 BEMPIC/787 carrier octets and carries 460 useful payload octets. |
-| ACCOUNT-06 | pass | The tranche-2 artifact records per-operation and protocol-overhead resume-control cost. |
+| ACCOUNT-06 | pass | The tranche-3 artifact records per-operation and protocol-overhead resume-control cost. |
 | ACCOUNT-07 | pass | Persistent resume saves 401 payload octets and 1,082 carrier octets against deterministic full restart. |
 
 ## `bempic-reference` release gates
@@ -97,12 +97,12 @@ Status meanings:
 | REF-04 | pass | RFC 8785 fingerprints, full IDs, content digest, preparation, validation, and opaque reconstruction pass. |
 | REF-05 | pass | Append checkpoints, delta/full reconciliation, and durable cursors pass. |
 | REF-06 | pass | Hard total/directional budgets, exact preflight, and accounting are one integrated v0.1 path. |
-| REF-07 | pass | Full-width crash/reopen, shared directory-entry durability, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
-| REF-08 | partial | Negotiation core works; every incompatibility/stale-cache trace is not bundled. |
+| REF-07 | pass | Full-width crash/reopen, durable immutable bindings, durable single-use retry allowance, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
+| REF-08 | pass | V13 executes compatible, version/schema/codec incompatible, deterministic tie, stale-cache recovery, optional, and critical-extension traces. |
 | REF-09 | blocked | The private compact profile, maxima, witnesses, and verifier exist, but no specification-registry experimental allocation exists. |
 | REF-10 | pass | Tool/version/duration/corpus digest and zero findings are published in `conformance/fuzz-report.json`. |
-| REF-11 | fail | V01–V15 now have a machine-readable evidence/pending inventory, but the mandatory byte/state bundle remains incomplete. |
-| REF-12 | partial | Independent verifier covers the compact pack and legacy bundle, but the mandatory V01–V15 bundle remains incomplete. |
+| REF-11 | partial | The deterministic V01–V15 bundle passes exact-head Ubuntu, Windows, macOS, and Python CI for decided behavior; three catalog rows remain explicitly blocked by allocation or external review. |
+| REF-12 | pass | Independent Python verifies the complete tranche-3 artifact and the retained private compact pack. |
 | REF-13 | partial | Oracle and differential tests pass; no maintainer-accepted parity disposition exists. |
 | REF-14 | blocked | Raw/MIME/candidate/interruption/persistence/full-restart figures exist; a legal B2F oracle does not. |
 | REF-15 | pass | Deferred payload, total budgets, durable final prefix, and deterministic quote tests pass. |
@@ -125,14 +125,14 @@ Status meanings:
 
 ## Published measurements and vectors
 
-- Tranche-2 integrated measurement artifact:
-  [`benchmarks/results/conformance-tranche-2-2026-09-01.json`](../benchmarks/results/conformance-tranche-2-2026-09-01.json).
+- Tranche-3 required-counter measurement artifact:
+  [`benchmarks/results/conformance-tranche-3-2026-09-01.json`](../benchmarks/results/conformance-tranche-3-2026-09-01.json).
 - Malformed/property report:
   [`conformance/fuzz-report.json`](../conformance/fuzz-report.json).
-- Incomplete experimental v0.1 bundle:
+- Experimental blocked/nonconformant v0.1 bundle:
   [`test-vectors/v0.1-experimental/manifest.json`](../test-vectors/v0.1-experimental/manifest.json),
-  digest `2411074bd16b6c3a4073849d6ceae730f0e06e288ed58816a60b1839d6317fb0`.
-- V01–V15 inventory and specification questions:
+  digest `7fa71ac6cdc8e37fea6d23389f12a562f239da5d5f5c5c1e8a41e198e26e372b`.
+- V01–V15 inventory and executed evidence:
   [`test-vectors/v0.1-experimental/catalog.json`](../test-vectors/v0.1-experimental/catalog.json).
 - Independent verifier: [`scripts/verify_conformance.py`](../scripts/verify_conformance.py).
 

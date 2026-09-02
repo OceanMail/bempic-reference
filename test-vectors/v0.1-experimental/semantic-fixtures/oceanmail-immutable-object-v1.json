@@ -1,0 +1,19 @@
+{
+  "bempic_core_policy_imported": false,
+  "body_nfc": "Resumé\n",
+  "created_at": "1788120000",
+  "immutable_semantics_digest": "c9c4e88773c2c4a09208161a68533bcb5d8a6de10ee76cf1df1e02d49eb61a4b",
+  "media_type": "text/plain;charset=utf-8",
+  "object_id": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "object_id_in_digest": false,
+  "part_id": 0,
+  "policy_boundary": "opaque-application-normalized-immutable-semantics-digest",
+  "profile": "bempic-reference-external-immutable-object-evidence-v1",
+  "recipients_nfc": [
+    "node-b@oceanmail.invalid"
+  ],
+  "sender_nfc": "café@oceanmail.invalid",
+  "source_commit": "cc55c1b7d5a03aa2e5cc8cd617f9d1bb7b6a3600",
+  "source_repository": "Gordonfive/oceanmail",
+  "subject_nfc": "Café status"
+}
