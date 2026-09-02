@@ -8,8 +8,9 @@ fixtures, and cross-language vectors.
 > **Conformance status:** not v0.1.0 conformant and not release-ready. The
 > requirement-by-requirement evidence under `conformance/` is authoritative.
 > The implementation targets specification commit
-> `c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401`, but mandatory codec, vector,
-> performance, B2F, interruption, and external M4P-review gates remain open.
+> `10fc1ddca0b16c974d29a24b6ff2bef189663a1f`, but codec allocation, B2F,
+> independent-implementation, release, and external M4P-review gates remain
+> open.
 
 > **No stable wire format:** every encoding in v0.1.0 is an experimental
 > measurement candidate. The markers, field widths, hashes, record kinds, and
@@ -67,6 +68,7 @@ cargo run -p bempic-conformance --release
 cargo run -p bempic-conformance --release -- tranche2-measurements
 cargo run -p bempic-conformance --release -- compact-codec-evidence
 cargo run -p bempic-conformance --release -- verify-compact-codec-evidence
+cargo run -p bempic-conformance --release -- verify-tranche3-evidence
 cargo run -p bempic-cli -- demo
 cargo run -p bempic-bench --release
 python -m pip install --require-hashes -r requirements-conformance.txt
@@ -81,11 +83,11 @@ The committed files under `test-vectors/experimental-v0/` are differential
 vectors shared by Rust and Python. They are experimental fixtures, not a
 compatibility promise.
 
-`test-vectors/v0.1-experimental/` uses the merged specification's bundle
-contract and an independent Python verifier. Its manifest explicitly marks the
-mandatory catalog incomplete; it is evidence, not a conformance claim.
-The catalog records all V01–V15 cases, executable evidence, pending vectors,
-and precise specification questions without inventing expected values.
+`test-vectors/v0.1-experimental/` uses the clarified specification's bundle
+contract and an independent Python verifier. It contains exact endpoint-bound
+semantic accounting, all 24 V08 rows, 42 V12 budget cases, 26 V15 failure
+cases, and expanded V04/V05/V06/V10/V11/V13 traces. The catalog reports 12
+pass and three blocked rows; it remains evidence, not a conformance claim.
 
 ## License
 

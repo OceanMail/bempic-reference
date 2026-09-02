@@ -454,8 +454,478 @@ def strict_json(value: str) -> Any:
     )
 
 
+def representation_id_from_bytes(
+    schema_fingerprint_hex: str,
+    codec_id: int,
+    codec_revision: int,
+    encoded: bytes,
+) -> str:
+    digest = hashlib.sha256(encoded).digest()
+    material = b"".join(
+        (
+            b"BEMPIC-REPRESENTATION-ID-v0.1\0",
+            bytes.fromhex(schema_fingerprint_hex),
+            struct.pack(">I", codec_id),
+            struct.pack(">I", codec_revision),
+            struct.pack(">I", 0),
+            struct.pack(">Q", len(encoded)),
+            digest,
+        )
+    )
+    return hashlib.sha256(material).hexdigest()
+
+
+def manifest_semantic_octets(fixture: dict[str, Any]) -> int:
+    total = 32 + 8
+    total += len(fixture["sender"].encode("utf-8"))
+    total += sum(len(value.encode("utf-8")) for value in fixture["recipients"])
+    if fixture["subject"] is not None:
+        total += len(fixture["subject"].encode("utf-8"))
+    for part in fixture["parts"]:
+        total += 4 + 1 + len(part["media_type"].encode("ascii"))
+        if part["filename"] is not None:
+            total += len(part["filename"].encode("utf-8"))
+    return total
+
+
+def update_length_prefixed(hasher: Any, value: bytes) -> None:
+    hasher.update(struct.pack(">Q", len(value)))
+    hasher.update(value)
+
+
+def oceanmail_semantics_digest(fixture: dict[str, Any]) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(b"OCEANMAIL-IMMUTABLE-SEMANTICS-v1\0")
+    hasher.update(struct.pack(">Q", int(fixture["created_at"])))
+    update_length_prefixed(hasher, fixture["sender_nfc"].encode("utf-8"))
+    recipients = fixture["recipients_nfc"]
+    hasher.update(struct.pack(">I", len(recipients)))
+    for recipient in recipients:
+        update_length_prefixed(hasher, recipient.encode("utf-8"))
+    subject = fixture["subject_nfc"]
+    hasher.update(b"\x01" if subject is not None else b"\x00")
+    if subject is not None:
+        update_length_prefixed(hasher, subject.encode("utf-8"))
+    hasher.update(struct.pack(">I", fixture["part_id"]))
+    update_length_prefixed(hasher, fixture["media_type"].encode("ascii"))
+    update_length_prefixed(hasher, fixture["body_nfc"].encode("utf-8"))
+    return hasher.hexdigest()
+
+
+def verify_failure_record(encoded_hex: str, code: int, retryable: bool) -> None:
+    encoded = bytes.fromhex(encoded_hex)
+    if encoded[:3] != b"B1\x07" or len(encoded) < 7:
+        raise VerificationError("invalid FAILURE envelope")
+    if struct.unpack(">I", encoded[3:7])[0] != len(encoded) - 7:
+        raise VerificationError("false FAILURE envelope length")
+    payload = encoded[7:]
+    if payload != bytes((code, 1, 0x53, int(retryable), 0, 0)):
+        raise VerificationError("FAILURE payload mismatch")
+
+
+def verify_tranche3(
+    manifest: dict[str, Any], catalog: dict[str, Any]
+) -> dict[str, Any]:
+    evidence = strict_json((BUNDLE_ROOT / "tranche3-evidence.json").read_text("utf-8"))
+    oceanmail = strict_json(
+        (BUNDLE_ROOT / "semantic-fixtures/oceanmail-immutable-object-v1.json").read_text(
+            "utf-8"
+        )
+    )
+    manifest_fixture = strict_json(
+        (BUNDLE_ROOT / "semantic-fixtures/message-manifest-full-width.json").read_text(
+            "utf-8"
+        )
+    )
+    ack_fixture = strict_json(
+        (BUNDLE_ROOT / "semantic-fixtures/ack-response.json").read_text("utf-8")
+    )
+    measurements = strict_json(
+        (
+            ROOT
+            / "benchmarks/results/conformance-tranche-3-2026-09-01.json"
+        ).read_text("utf-8")
+    )
+
+    expected_specification = "10fc1ddca0b16c974d29a24b6ff2bef189663a1f"
+    if evidence["specification_commit"] != expected_specification:
+        raise VerificationError("tranche-3 specification commit mismatch")
+    if evidence["conformance_claim"] is not False:
+        raise VerificationError("tranche-3 evidence makes a conformance claim")
+    if evidence["codec"]["current_id"] != COMPACT_CODEC_ID:
+        raise VerificationError("private codec ID changed")
+    if evidence["codec"]["current_revision"] != COMPACT_CODEC_REVISION:
+        raise VerificationError("private codec revision changed")
+    if evidence["codec"]["registry_allocation"] is not None:
+        raise VerificationError("private codec claims an allocation")
+    if not evidence["codec"]["generator_accepts_explicit_id_revision"]:
+        raise VerificationError("allocation-ready codec generation failed")
+
+    if oceanmail["source_commit"] != "cc55c1b7d5a03aa2e5cc8cd617f9d1bb7b6a3600":
+        raise VerificationError("OceanMail evidence commit mismatch")
+    if oceanmail_semantics_digest(oceanmail) != oceanmail["immutable_semantics_digest"]:
+        raise VerificationError("OceanMail immutable semantics digest mismatch")
+    if oceanmail["object_id_in_digest"] or oceanmail["bempic_core_policy_imported"]:
+        raise VerificationError("OceanMail policy leaked into BEMPIC evidence")
+    immutable = evidence["immutable_object_semantics"]
+    if not all(
+        immutable[name]
+        for name in (
+            "first_observation",
+            "duplicate_observation",
+            "conflict_error",
+            "original_binding_preserved",
+            "unrelated_binding_preserved",
+        )
+    ):
+        raise VerificationError("immutable object conflict evidence mismatch")
+
+    manifest_semantic = manifest_semantic_octets(manifest_fixture)
+    if int(manifest_fixture["semantic_octets"]) != manifest_semantic:
+        raise VerificationError("manifest semantic octets mismatch")
+    if manifest_fixture["representation_descriptor_contribution"] != "0":
+        raise VerificationError("manifest descriptor contribution is nonzero")
+
+    semantic = evidence["semantic_accounting"]
+    if semantic["endpoint_a_binding"] != manifest["endpoint_a_binding"]:
+        raise VerificationError("endpoint A binding mismatch")
+    if semantic["endpoint_b_binding"] != manifest["endpoint_b_binding"]:
+        raise VerificationError("endpoint B binding mismatch")
+    expected_values: dict[str, tuple[bytes, int]] = {
+        "manifest-accepted-selection-1": (
+            (BUNDLE_ROOT / "semantic-fixtures/message-manifest-full-width.json").read_bytes(),
+            manifest_semantic,
+        ),
+        "body-accepted-selection-2": (
+            oceanmail["body_nfc"].encode("utf-8"),
+            len(oceanmail["body_nfc"].encode("utf-8")),
+        ),
+        "response-accepted-selection-3": (
+            bytes.fromhex(ack_fixture["decoded_value_hex"]),
+            int(ack_fixture["semantic_octets"]),
+        ),
+    }
+    file_entries = {entry["path"]: entry for entry in manifest["files"]}
+    directional = {"send": 0, "receive": 0}
+    counted: set[tuple[str, str]] = set()
+    for fixture in semantic["semantic_fixtures"]:
+        path_text = fixture["semantic_fixture_path"]
+        path = Path(path_text)
+        if path.is_absolute() or ".." in path.parts or path_text not in file_entries:
+            raise VerificationError("semantic fixture path escapes bundle")
+        raw = (BUNDLE_ROOT / path).read_bytes()
+        if fixture["semantic_fixture_sha256"] != hashlib.sha256(raw).hexdigest():
+            raise VerificationError("semantic fixture digest mismatch")
+        if int(fixture["semantic_fixture_octets"]) != len(raw):
+            raise VerificationError("semantic fixture file length mismatch")
+        if fixture["representation_descriptor_contribution"] != "0":
+            raise VerificationError("descriptor bytes contaminated semantics")
+        encoded, expected_semantic = expected_values[fixture["selection_event"]]
+        if int(fixture["semantic_octets"]) != expected_semantic:
+            raise VerificationError("independent semantic value mismatch")
+        expected_id = representation_id_from_bytes(
+            fixture["schema_fingerprint"],
+            COMPACT_CODEC_ID,
+            COMPACT_CODEC_REVISION,
+            encoded,
+        )
+        if fixture["representation_id"] != expected_id:
+            raise VerificationError("semantic fixture representation ID mismatch")
+        key = (fixture["direction"], fixture["representation_id"])
+        if key not in counted:
+            counted.add(key)
+            directional[fixture["direction"]] += expected_semantic
+    if semantic["duplicate_selection_counted"]:
+        raise VerificationError("duplicate semantic selection was counted")
+    if int(semantic["semantic_bytes_send"]) != directional["send"]:
+        raise VerificationError("semantic send counter mismatch")
+    if int(semantic["semantic_bytes_receive"]) != directional["receive"]:
+        raise VerificationError("semantic receive counter mismatch")
+    if int(semantic["semantic_bytes"]) != sum(directional.values()):
+        raise VerificationError("semantic total identity mismatch")
+
+    vectors = evidence["vectors"]
+    if vectors["V01"]["equal-warm-100"] != {
+        "bempic_total_bytes": "35",
+        "maximum": "64",
+        "pass": True,
+    }:
+        raise VerificationError("V01 warm measurement mismatch")
+    if vectors["V01"]["equal-cold-100"] != {
+        "bempic_total_bytes": "75",
+        "maximum": "128",
+        "pass": True,
+    }:
+        raise VerificationError("V01 cold measurement mismatch")
+    if vectors["V02"]["new_manifest_count"] != 1 or vectors["V02"][
+        "retransmitted_prior_manifest_bytes"
+    ] != "0":
+        raise VerificationError("V02 delta mismatch")
+    if vectors["V03"]["page_sizes"] != [128, 128, 1] or not all(
+        vectors["V03"][name]
+        for name in ("reopen_after_page_1", "target_digest_consistent", "final_cursor_cleared")
+    ):
+        raise VerificationError("V03 paging evidence mismatch")
+
+    v04 = vectors["V04"]["cases"]
+    required_v04 = {
+        "tiny",
+        "typical",
+        "international-nfc",
+        "reply-chain",
+        "absent-subject",
+        "maximum-recipients",
+        "maximum-parts",
+        "maximum-representations-per-part",
+        "every-maximum-metadata-length",
+    }
+    if {case["case"] for case in v04["valid"]} != required_v04:
+        raise VerificationError("V04 valid inventory mismatch")
+    if len(v04["invalid"]) < 12 or not all(
+        case["rejected_before_mutation"] for case in v04["invalid"]
+    ):
+        raise VerificationError("V04 one-past rejection mismatch")
+    if vectors["V05"]["unselected_representation_payload_bytes"] != "0":
+        raise VerificationError("V05 unselected payload mismatch")
+
+    compressible = bytes(4096)
+    incompressible = bytes(range(256)) * 16
+    for name, raw in (
+        ("compressible-selected", compressible),
+        ("incompressible-selected", incompressible),
+    ):
+        value = vectors["V06"][name]
+        if value["content_digest"] != hashlib.sha256(raw).hexdigest():
+            raise VerificationError(f"V06 digest mismatch: {name}")
+        expected_id = representation_id_from_bytes(
+            COMPACT_SCHEMA_FINGERPRINT,
+            COMPACT_CODEC_ID,
+            COMPACT_CODEC_REVISION,
+            raw,
+        )
+        if value["representation_id"] != expected_id or not value["exact_reconstruction"]:
+            raise VerificationError(f"V06 representation mismatch: {name}")
+    if not vectors["V07"]["one-past-representation"]["rejected_before_allocation"]:
+        raise VerificationError("V07 one-past allocation accepted")
+
+    expected_rows = [
+        ("V08-C01", "offset-0", "sender", "memory"),
+        ("V08-C02", "offset-0", "receiver", "representation-file"),
+        ("V08-C03", "offset-0", "both", "durable-store"),
+        ("V08-C04", "offset-1-percent", "sender", "representation-file"),
+        ("V08-C05", "offset-1-percent", "receiver", "durable-store"),
+        ("V08-C06", "offset-1-percent", "both", "memory"),
+        ("V08-C07", "offset-10-percent", "sender", "durable-store"),
+        ("V08-C08", "offset-10-percent", "receiver", "memory"),
+        ("V08-C09", "offset-10-percent", "both", "representation-file"),
+        ("V08-C10", "offset-50-percent", "sender", "memory"),
+        ("V08-C11", "offset-50-percent", "receiver", "representation-file"),
+        ("V08-C12", "offset-50-percent", "both", "durable-store"),
+        ("V08-C13", "offset-90-percent", "sender", "representation-file"),
+        ("V08-C14", "offset-90-percent", "receiver", "durable-store"),
+        ("V08-C15", "offset-90-percent", "both", "memory"),
+        ("V08-C16", "final-byte", "sender", "durable-store"),
+        ("V08-C17", "final-byte", "receiver", "memory"),
+        ("V08-C18", "final-byte", "both", "representation-file"),
+        ("V08-C19", "post-verify-pre-commit", "sender", "memory"),
+        ("V08-C20", "post-verify-pre-commit", "receiver", "representation-file"),
+        ("V08-C21", "post-verify-pre-commit", "both", "durable-store"),
+        ("V08-C22", "post-commit-pre-receipt", "sender", "representation-file"),
+        ("V08-C23", "post-commit-pre-receipt", "receiver", "durable-store"),
+        ("V08-C24", "post-commit-pre-receipt", "both", "memory"),
+    ]
+    rows = vectors["V08"]["rows"]
+    required_fields = {
+        "row_id",
+        "fixture_digest",
+        "trace_digest",
+        "encoded_length",
+        "interruption_point",
+        "computed_prefix",
+        "restart_party",
+        "storage_surface",
+        "storage_backend",
+        "durable_state_before",
+        "recovered_state",
+        "recovered_prefix",
+        "first_resumed_offset",
+        "new_payload_bytes",
+        "duplicate_payload_bytes",
+        "retransmitted_durable_prefix_bytes",
+        "receipt_state_before",
+        "receipt_state_after",
+        "final_content_digest",
+        "final_representation_id",
+        "final_decode",
+        "result",
+    }
+    fixture_raw = bytes(range(256)) * 3 + bytes(range(232))
+    fixture_digest = hashlib.sha256(fixture_raw).hexdigest()
+    for row, expected in zip(rows, expected_rows, strict=True):
+        if (
+            row["row_id"],
+            row["interruption_point"],
+            row["restart_party"],
+            row["storage_surface"],
+        ) != expected:
+            raise VerificationError("V08 authoritative row mismatch")
+        if not required_fields <= row.keys():
+            raise VerificationError("V08 row evidence field missing")
+        if row["fixture_digest"] != fixture_digest or row["encoded_length"] != "1000":
+            raise VerificationError("V08 fixture mismatch")
+        if row["recovered_prefix"] != row["first_resumed_offset"]:
+            raise VerificationError("V08 resume offset mismatch")
+        if row["duplicate_payload_bytes"] != "0" or row[
+            "retransmitted_durable_prefix_bytes"
+        ] != "0":
+            raise VerificationError("V08 duplicate/retransmission mismatch")
+        if row["receipt_state_before"] or not row["receipt_state_after"]:
+            raise VerificationError("V08 receipt ordering mismatch")
+        if not row["final_decode"] or row["final_state"] != "committed":
+            raise VerificationError("V08 reconstruction mismatch")
+        trace = {
+            "row_id": row["row_id"],
+            "point": row["interruption_point"],
+            "restart": row["restart_party"],
+            "storage": row["storage_surface"],
+            "computed_prefix": row["computed_prefix"],
+            "recovered_prefix": row["recovered_prefix"],
+            "final_digest": row["fixture_digest"],
+        }
+        trace_bytes = json.dumps(
+            trace, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
+        if row["trace_digest"] != hashlib.sha256(trace_bytes).hexdigest():
+            raise VerificationError("V08 trace digest mismatch")
+    if not vectors["V08"]["pair_coverage"]["complete"]:
+        raise VerificationError("V08 pair coverage incomplete")
+
+    expected_v11 = {
+        "corrupt-final-byte": "INTEGRITY_FAILURE",
+        "conflicting-overlap": "METADATA_CONFLICT",
+        "gap": "RANGE_INVALID",
+        "false-length-short": "RANGE_INVALID",
+        "false-length-long": "PARTIAL-no-positive-receipt",
+        "false-digest": "INTEGRITY_FAILURE",
+        "false-representation-id": "INTEGRITY_FAILURE",
+        "object-id-metadata-conflict": "METADATA_CONFLICT",
+    }
+    for case in vectors["V11"]["cases"]:
+        if case["observed_outcome"] != expected_v11[case["case"]] or case[
+            "result"
+        ] != "pass":
+            raise VerificationError("V11 outcome mismatch")
+    if not vectors["V11"]["unrelated_exact_reconstruction"]:
+        raise VerificationError("V11 unrelated state was damaged")
+
+    v12_cases = vectors["V12"]["cases"]
+    operation_names = {case["operation"] for case in v12_cases}
+    if len(v12_cases) != 42 or operation_names != {
+        "CAPABILITIES",
+        "SUMMARY",
+        "OFFER",
+        "REQUEST",
+        "DATA",
+        "RECEIPT",
+        "FAILURE",
+    }:
+        raise VerificationError("V12 operation/domain inventory mismatch")
+    if any(case["result"] != "pass" or case["quote_error_bytes"] != "0" for case in v12_cases):
+        raise VerificationError("V12 budget outcome mismatch")
+
+    v13 = vectors["V13"]["cases"]
+    if not all(
+        v13["stale-cache-recovery"][name]
+        for name in ("warm_hit", "stale_miss", "renegotiated", "fresh_hit")
+    ):
+        raise VerificationError("V13 stale-cache recovery mismatch")
+    if not v13["unknown-optional-extension"]["skipped"] or not v13[
+        "unknown-critical-extension"
+    ]["rejected"]:
+        raise VerificationError("V13 extension behavior mismatch")
+    if len(vectors["V14"]["cases"]) != 12:
+        raise VerificationError("V14 before/after inventory mismatch")
+
+    failure_names = [
+        "UNSUPPORTED_VERSION",
+        "UNSUPPORTED_SCHEMA",
+        "UNSUPPORTED_CODEC",
+        "UNSUPPORTED_CRITICAL_EXTENSION",
+        "MALFORMED_OPERATION",
+        "LIMIT_EXCEEDED",
+        "UNKNOWN_OBJECT",
+        "METADATA_CONFLICT",
+        "RANGE_INVALID",
+        "INTEGRITY_FAILURE",
+        "STORAGE_FAILURE",
+        "POLICY_REJECTED",
+        "CHECKPOINT_UNKNOWN",
+    ]
+    v15 = vectors["V15"]["cases"]
+    if len(v15) != 26:
+        raise VerificationError("V15 case count mismatch")
+    for case in v15:
+        code = failure_names.index(case["code"])
+        retryable = case["advertised_retryable"]
+        verify_failure_record(case["encoded_hex"], code, retryable)
+        if case["automatic_retry_attempts"] != int(retryable) or not case["retry_bounded"]:
+            raise VerificationError("V15 bounded retry mismatch")
+        if case["unrelated_committed_state"] != "usable" or case["result"] != "pass":
+            raise VerificationError("V15 scoped state mismatch")
+
+    metric_names = {
+        "semantic_bytes",
+        "semantic_bytes_send",
+        "semantic_bytes_receive",
+        "bempic_total_bytes",
+        "bempic_operation_bytes_send",
+        "bempic_operation_bytes_receive",
+        "representation_payload_bytes",
+        "useful_committed_bytes",
+        "duplicate_bempic_bytes",
+        "duplicate_representation_payload_bytes",
+        "unselected_representation_payload_bytes",
+        "retransmitted_durable_prefix_bytes",
+        "retransmitted_prior_manifest_bytes",
+        "resume_control_bytes",
+        "bempic_bytes_to_first_body_payload_octet",
+        "bempic_bytes_to_first_body_commit",
+        "preflight_quoted_bempic_bytes",
+        "quote_error_bytes",
+    }
+    scope = measurements["measurement_scope"]
+    if not metric_names <= scope.keys():
+        raise VerificationError("tranche-3 required metric missing")
+    if int(scope["semantic_bytes"]) != int(scope["semantic_bytes_send"]) + int(
+        scope["semantic_bytes_receive"]
+    ):
+        raise VerificationError("measurement semantic identity mismatch")
+    if int(scope["bempic_total_bytes"]) != int(
+        scope["bempic_operation_bytes_send"]
+    ) + int(scope["bempic_operation_bytes_receive"]):
+        raise VerificationError("measurement BEMPIC identity mismatch")
+    compact_measurement = measurements["compact_no_change_100_messages"]
+    if compact_measurement["warm_no_change_octets"] != 35 or compact_measurement[
+        "cold_no_change_octets"
+    ] != 75:
+        raise VerificationError("measurement compact values mismatch")
+    if measurements["v08_rows"] != 24 or measurements["v12_budget_cases"] != 42:
+        raise VerificationError("measurement evidence counts mismatch")
+
+    return {
+        "semantic_bytes": int(semantic["semantic_bytes"]),
+        "semantic_bytes_send": directional["send"],
+        "semantic_bytes_receive": directional["receive"],
+        "v08_rows": len(rows),
+        "v12_cases": len(v12_cases),
+        "v15_cases": len(v15),
+        "required_metrics": len(metric_names),
+        "catalog_counts": catalog["counts"],
+    }
+
+
 def verify() -> dict[str, Any]:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest = strict_json(MANIFEST_PATH.read_text(encoding="utf-8"))
     expected_bundle_digest = manifest["bundle_digest"]
     digest_value = dict(manifest)
     digest_value["bundle_digest"] = None
@@ -482,16 +952,18 @@ def verify() -> dict[str, Any]:
     if actual_catalog_ids != expected_catalog_ids:
         raise VerificationError("mandatory vector catalog IDs/order mismatch")
     allowed_statuses = {"pass", "partial", "fail", "blocked"}
+    observed_counts = {status: 0 for status in allowed_statuses}
     for entry in catalog["entries"]:
         if entry["status"] not in allowed_statuses:
             raise VerificationError(f"invalid catalog status: {entry['id']}")
-        if entry["status"] in {"partial", "blocked"} and not entry.get("pending"):
-            raise VerificationError(f"catalog gap lacks pending inventory: {entry['id']}")
+        observed_counts[entry["status"]] += 1
+        if entry["status"] == "blocked" and not entry.get("result"):
+            raise VerificationError(f"catalog blocker lacks result: {entry['id']}")
+    observed_counts["total"] = len(catalog["entries"])
+    if observed_counts != catalog["counts"] or observed_counts != manifest["catalog_counts"]:
+        raise VerificationError("catalog counts mismatch")
     if catalog["implementation_status"] != manifest["mandatory_catalog_status"]:
         raise VerificationError("catalog and manifest completion status differ")
-    question_ids = [question["id"] for question in catalog["proposed_specification_questions"]]
-    if len(question_ids) != len(set(question_ids)) or not question_ids:
-        raise VerificationError("specification questions must be non-empty and unique")
 
     fingerprints: dict[str, str] = {}
     for descriptor in manifest["schema_descriptors"]:
@@ -502,32 +974,7 @@ def verify() -> dict[str, Any]:
             raise VerificationError(f"schema fingerprint mismatch: {descriptor['path']}")
         fingerprints[descriptor["path"]] = actual
 
-    for fixture in manifest["representation_fixtures"]:
-        encoded = bytes.fromhex(fixture["encoded_hex"])
-        if str(len(encoded)) != fixture["encoded_length"]:
-            raise VerificationError("representation length mismatch")
-        if hashlib.sha256(encoded).hexdigest() != fixture["content_digest_sha256"]:
-            raise VerificationError("content digest mismatch")
-        if representation_id(fixture) != fixture["representation_id"]:
-            raise VerificationError("representation ID mismatch")
-        if fixture["decoded_value_hex"] != fixture["encoded_hex"]:
-            raise VerificationError("opaque exact reconstruction mismatch")
-
-    valid = next(vector for vector in manifest["vectors"] if vector["kind"] == "valid")
-    encoded = bytes.fromhex(valid["expected_encoded_hex"])
-    if len(encoded) != valid["expected_encoded_length"]:
-        raise VerificationError("operation vector length mismatch")
-    decoded = decode_representation_request(encoded)
-    if decoded != valid["decoded_value"]:
-        raise VerificationError("independent operation decode mismatch")
-
-    invalid = next(vector for vector in manifest["vectors"] if vector["kind"] == "invalid")
-    try:
-        decode_representation_request(bytes.fromhex(invalid["input_hex"]))
-    except VerificationError:
-        pass
-    else:
-        raise VerificationError("malformed operation unexpectedly accepted")
+    tranche3_result = verify_tranche3(manifest, catalog)
 
     jcs_vectors = json.loads(
         (ROOT / "schemas" / "v0.1" / "jcs-canonicalization-vectors.json").read_text(
@@ -554,14 +1001,12 @@ def verify() -> dict[str, Any]:
         "specification_commit": manifest["specification_commit"],
         "bundle_digest": bundle_digest,
         "schema_fingerprints": fingerprints,
-        "valid_vectors": 1,
-        "invalid_vectors": 1,
         "mandatory_catalog_entries": len(catalog["entries"]),
         "mandatory_catalog_status": catalog["implementation_status"],
-        "proposed_specification_questions": len(question_ids),
         "jcs_valid_vectors": len(jcs_vectors["valid"]),
         "jcs_invalid_vectors": len(jcs_vectors["invalid"]),
         "compact_candidate": compact_result,
+        "tranche3": tranche3_result,
     }
 
 

@@ -1,0 +1,59 @@
+{
+  "catalog_counts": {
+    "blocked": 3,
+    "fail": 0,
+    "partial": 0,
+    "pass": 12,
+    "total": 15
+  },
+  "codec_status": "implementation-local-private-use-nonconformant",
+  "compact_no_change_100_messages": {
+    "b1_comparison_cold_octets": 292,
+    "b1_comparison_warm_octets": 88,
+    "cold_gate_maximum_octets": 128,
+    "cold_gate_pass": true,
+    "cold_no_change_octets": 75,
+    "warm_gate_maximum_octets": 64,
+    "warm_gate_pass": true,
+    "warm_no_change_octets": 35
+  },
+  "measurement_scope": {
+    "bempic_bytes_to_first_body_commit": "3447",
+    "bempic_bytes_to_first_body_payload_octet": "747",
+    "bempic_operation_bytes_receive": "683",
+    "bempic_operation_bytes_send": "2855",
+    "bempic_total_bytes": "3538",
+    "carrier_bytes": 3658,
+    "carrier_cost_precision": "exact",
+    "duplicate_bempic_bytes": "0",
+    "duplicate_representation_payload_bytes": "0",
+    "endpoint_a_binding": {
+      "fixture": "fixture-node-a",
+      "role": "endpoint-a"
+    },
+    "endpoint_b_binding": {
+      "fixture": "fixture-node-b",
+      "role": "endpoint-b"
+    },
+    "exact_reconstruction": true,
+    "link_cost_precision": "unavailable",
+    "preflight_quoted_bempic_bytes": "3538",
+    "quote_error_bytes": "0",
+    "representation_payload_bytes": "2048",
+    "resume_control_bytes": "1490",
+    "retransmitted_durable_prefix_bytes": "0",
+    "retransmitted_prior_manifest_bytes": "0",
+    "selected_representation": "integrated-opaque-body-2048",
+    "semantic_bytes": "2048",
+    "semantic_bytes_receive": "0",
+    "semantic_bytes_send": "2048",
+    "unselected_representation_payload_bytes": "0",
+    "useful_committed_bytes": "2048"
+  },
+  "schema": "bempic-reference-v0.1-conformance-tranche-3-measurements",
+  "specification_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f",
+  "v08_pair_coverage_complete": true,
+  "v08_rows": 24,
+  "v12_budget_cases": 42,
+  "v15_failure_cases": 26
+}

@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 bempic-model.workspace = true
 bempic-sim.workspace = true
+bempic-store.workspace = true
 bempic-sync.workspace = true
 hex.workspace = true
 serde.workspace = true

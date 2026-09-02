@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 //! Deterministic malformed-input and exact-size property runner.
 
+mod tranche3;
+
 use bempic_model::v01::{
     fingerprint_from_hex, ContentDigest, MessageManifest, ObjectId, PartDescriptor, PartRole,
     PreparedRepresentation, RepresentationDescriptor, RepresentationId, SchemaFingerprint,
@@ -830,6 +832,16 @@ fn verify_compact_codec_artifact() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    if env::args().nth(1).as_deref() == Some("write-tranche3-evidence") {
+        return tranche3::write_artifacts(std::path::Path::new("."));
+    }
+    if env::args().nth(1).as_deref() == Some("verify-tranche3-evidence") {
+        return tranche3::verify_artifacts(std::path::Path::new("."));
+    }
+    if env::args().nth(1).as_deref() == Some("tranche3-evidence") {
+        println!("{}", serde_json::to_string_pretty(&tranche3::evidence()?)?);
+        return Ok(());
+    }
     if env::args().nth(1).as_deref() == Some("verify-compact-codec-evidence") {
         return verify_compact_codec_artifact();
     }

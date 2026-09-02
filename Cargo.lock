@@ -52,6 +52,7 @@ version = "0.1.0"
 dependencies = [
  "bempic-model",
  "bempic-sim",
+ "bempic-store",
  "bempic-sync",
  "hex",
  "serde",

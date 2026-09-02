@@ -1,19 +1,35 @@
 {
-  "bundle_digest": "bd6e693d890a0359ff74821294a8cb2e3f628291cd084d844b831491aac92a9e",
+  "bundle_digest": "f27d2086322c4dfaae2608e3fd4afcadfe0671d70bbccf7ae07543c05cd8544c",
   "bundle_format_version": "0.1",
+  "catalog_counts": {
+    "blocked": 3,
+    "fail": 0,
+    "partial": 0,
+    "pass": 12,
+    "total": 15
+  },
   "codec": {
     "canonical_parameters_hex": "",
     "declared_max_operation_octets": 1048576,
     "id": 4294901761,
-    "revision": 1,
-    "status": "experimental-unregistered"
+    "registry_allocation": null,
+    "revision": 2,
+    "status": "implementation-local-private-use-nonconformant"
+  },
+  "endpoint_a_binding": {
+    "fixture": "fixture-node-a",
+    "role": "endpoint-a"
+  },
+  "endpoint_b_binding": {
+    "fixture": "fixture-node-b",
+    "role": "endpoint-b"
   },
   "extensions": [],
   "files": [
     {
-      "length": 7481,
+      "length": 3692,
       "path": "catalog.json",
-      "sha256": "e07ba66d5ee45ce410839206884aa36e5cb4af5a4502de650f22654685d68778"
+      "sha256": "23c8b1b766fcb33d987871b45e12eb15109a173d0640e695e1573ff76fdcea48"
     },
     {
       "length": 2390,
@@ -21,78 +37,55 @@
       "sha256": "fd9c24a272c8d1ee1479b2f54d8a6accdc39818d0031029f7619f45f35648353"
     },
     {
+      "length": 1915,
+      "path": "schemas/message-manifest.schema.jcs",
+      "sha256": "b2f0ce7e911836bbb47a9d2276d1e81f6bb4042c899a5e5902a675f678c4799e"
+    },
+    {
       "length": 215,
       "path": "schemas/opaque-binary.schema.jcs",
       "sha256": "40c7d501558d7f49a174374bfd6b37d7da210eb8f6e5a23b1852b07ed776e9d3"
+    },
+    {
+      "length": 113,
+      "path": "semantic-fixtures/ack-response.json",
+      "sha256": "f88231b535aa1d1f5a580d6ddcc5689f5cbc34e9028f9e1e6c9a631201652443"
+    },
+    {
+      "length": 6643,
+      "path": "semantic-fixtures/message-manifest-full-width.json",
+      "sha256": "568796cdd615b8ea5975a373b4f276c2e0e2190a815c635c521fcaf915b8e542"
+    },
+    {
+      "length": 771,
+      "path": "semantic-fixtures/oceanmail-immutable-object-v1.json",
+      "sha256": "44d5fe151a0addb65ac53c1074a5a112b19b97b1e7b8ef775a32f3a1dfd2275d"
+    },
+    {
+      "length": 79699,
+      "path": "tranche3-evidence.json",
+      "sha256": "fb977f03181ca86081248e61c896ce0f5987e08aa54ffc3bb6d9aa6c68730e2e"
     }
   ],
-  "mandatory_catalog_status": "incomplete-release-blocker",
+  "mandatory_catalog_status": "blocked-not-conformant",
   "protocol_generation": {
     "major": 0,
     "minor": 1
   },
-  "representation_fixtures": [
-    {
-      "codec_id": 4294901761,
-      "codec_parameters_hex": "",
-      "codec_revision": 1,
-      "content_digest_sha256": "83515029dc5ad06e07abd873a42b64ed35869181eaa668da3f804e1cd499d4c0",
-      "decoded_value_hex": "636f6e666f726d616e6365207061796c6f6164",
-      "encoded_hex": "636f6e666f726d616e6365207061796c6f6164",
-      "encoded_length": "19",
-      "name": "opaque-conformance-payload",
-      "representation_id": "3eaba987e68bdf1f5d5d0cc4fd0eca79d7419417d57e587c0ea81f1bc7708bcd",
-      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
-    }
-  ],
   "schema_descriptors": [
     {
       "fingerprint": "c4a686e7e9c6a40a5f187259a376b26cfc1d355179fd9fff487e105aeeac7302",
       "path": "schemas/core-operations.schema.jcs"
     },
     {
+      "fingerprint": "0ac001efba42837aade054401d9d307d16ad4715feac288fcb3d1711e4b961da",
+      "path": "schemas/message-manifest.schema.jcs"
+    },
+    {
       "fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797",
       "path": "schemas/opaque-binary.schema.jcs"
     }
   ],
-  "specification_commit": "c67a87e9dcc4fb91b25ed4f4ccc0bee46823e401",
-  "vectors": [
-    {
-      "accounting": {
-        "budget_after_receiver_to_sender": "98",
-        "budget_after_total": "98",
-        "budget_before_receiver_to_sender": "0",
-        "budget_before_total": "0",
-        "direction": "receiver_to_sender"
-      },
-      "decoded_value": {
-        "budget_id": "42424242424242424242424242424242",
-        "max_receiver_to_sender_bytes": "196",
-        "max_sender_to_receiver_bytes": "3900",
-        "max_total_bempic_bytes": "4096",
-        "selections": [
-          {
-            "durable_prefix_offset": "0",
-            "max_desired_payload_octets": "19",
-            "representation_id": "3eaba987e68bdf1f5d5d0cc4fd0eca79d7419417d57e587c0ea81f1bc7708bcd"
-          }
-        ],
-        "variant": "REPRESENTATION_DATA"
-      },
-      "expected_encoded_hex": "4231040000005b014242424242424242424242424242424200000000000010000000000000000f3c00000000000000c4013eaba987e68bdf1f5d5d0cc4fd0eca79d7419417d57e587c0ea81f1bc7708bcd0000000000000000000000000000001300",
-      "expected_encoded_length": 98,
-      "expected_operation": "REQUEST",
-      "kind": "valid",
-      "name": "representation-data-explicit-selection",
-      "state_after": "explicit-data-authorized",
-      "state_before": "selecting"
-    },
-    {
-      "expected_failure_code": "MALFORMED_OPERATION",
-      "input_hex": "4231040000005b014242424242424242424242424242424200000000000010000000000000000f3c00000000000000c4013eaba987e68bdf1f5d5d0cc4fd0eca79d7419417d57e587c0ea81f1bc7708bcd000000000000000000000000000000130000",
-      "kind": "invalid",
-      "mutation_prohibited": true,
-      "name": "representation-data-trailing-byte"
-    }
-  ]
+  "semantic_bytes_source": "tranche3-evidence.json#/semantic_accounting",
+  "specification_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f"
 }

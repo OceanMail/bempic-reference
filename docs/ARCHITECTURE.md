@@ -72,11 +72,12 @@ carrier cost. Sender-only, receiver-only, simultaneous, cold, repeated,
 replayed, truncated, corrupt, and deterministic storage-boundary failures are
 exercised without adding lower-layer routing or fragmentation behavior.
 
-The committed tranche-2 measurement artifact reports useful payload to first
-body delivery, exact quote error, protocol overhead, warm/cold no-change size,
-and persistent-resume versus full-restart cost. Maximum-size analyses are
-arithmetic proofs for the disposable B1 implementation only; every declared
-maximum has a valid encoded witness in tests, but none is an approved codec.
+The committed tranche-3 measurement artifact reports all 18 required counters,
+including stable-direction semantic bytes, useful payload to first body and
+commit, exact quote error, protocol overhead, warm/cold no-change size, and
+persistent-resume evidence. Maximum-size analyses remain arithmetic proofs for
+the disposable B1/private implementations only; every declared maximum has a
+valid encoded witness in tests, but none is an approved codec.
 
 The private-use compact revision-2 candidate adds a strict, length-delimited
 outer image and two lossless aliases. Its static capability alias restores the
@@ -89,6 +90,34 @@ receipt semantics. The candidate is documented in
 [`EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](EXPERIMENTAL-COMPACT-CODEC-v0.1.md) and
 remains nonconformant until the specification project reviews the alias model
 and performs an experimental allocation.
+
+The compact implementation exposes an explicit codec-ID/revision generation
+input so an eventual specification allocation can regenerate the static
+capability alias without a source edit. Committed evidence always supplies
+private identity `0xffff0001/2`; alternate identities in tests are explicitly
+unallocated inputs and make no registry claim.
+
+## Semantic evidence boundary
+
+One measurement scope binds endpoint A and endpoint B once. `send` is always A
+to B and `receive` is always B to A across restarts, source/carrier changes,
+and ownership reversals. `SemanticAccounting` counts each distinct
+`(direction, representation_id)` only at its first accepted application
+selection. Manifest application scalars contribute recursively; the complete
+representation-descriptor container contributes zero.
+
+OceanMail's pinned fixture supplies normalized immutable application semantics
+and a 32-octet opaque comparison digest. BEMPIC stores only the object-ID to
+opaque-digest binding needed for idempotent observation and conflict rejection;
+normalization, object-ID generation, receipt policy, and mailbox behavior remain
+outside BEMPIC core.
+
+The tranche-3 generator drives the actual representation and protocol stores
+for the authoritative 24-row V08 covering array. Memory rows model bounded
+volatile receive state, representation-file rows interrupt after fsynced prefix
+bytes, and durable-store rows advance the two-slot state. Every row reopens at
+the authoritative prefix and commits a positive receipt only after exact
+reconstruction.
 
 ## Security boundary
 
