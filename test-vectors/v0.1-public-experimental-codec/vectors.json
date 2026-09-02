@@ -1,0 +1,252 @@
+{
+  "codec": {
+    "approved": false,
+    "canonical_parameters_hex": "",
+    "id": 65536,
+    "mandatory": false,
+    "normative_profile_sha256": "bc82364f7ac2f563bbdc0ea15f3d9b1f9127d6ac88376bf19a6dc642dc731127",
+    "production_security_promise": false,
+    "profile": "docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md",
+    "registry_allocation": "experimental",
+    "revision": 1,
+    "stable_wire_promise": false,
+    "status": "public-experimental-not-approved-not-mandatory"
+  },
+  "evidence_artifact": {
+    "path": "benchmarks/results/compact-codec-public-evidence-2026-09-02.json",
+    "sha256": "9b7fcfae3b4bb8ffae9751e7c3f2ea8c6cf750161197fc8e099467335bc3f24e"
+  },
+  "maximum_witnesses": [
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33275,
+        "kind": "CAPABILITIES",
+        "maximum_encoded_octets": 33280
+      },
+      "encoded_length": 33280,
+      "kind": "CAPABILITIES",
+      "legacy_encoded_length": 33282,
+      "sha256": "fb6532e9567b8877b4ac125353afb0e63aea057706a30ac90471316b6521be62"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33073,
+        "kind": "SUMMARY",
+        "maximum_encoded_octets": 33078
+      },
+      "encoded_length": 33078,
+      "kind": "SUMMARY",
+      "legacy_encoded_length": 33080,
+      "sha256": "76eee5b1a7ac8933b76dff47d97bd52c7885e659bb2b24c61d77afcee53c2f4f"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 55710,
+        "kind": "OFFER",
+        "maximum_encoded_octets": 55715
+      },
+      "encoded_length": 55715,
+      "kind": "OFFER",
+      "legacy_encoded_length": 55717,
+      "sha256": "37704a86c129eca493bd7cd29b5b6354ccc2b5ce09357f17c29e5a8e57c017b3"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 39179,
+        "kind": "REQUEST",
+        "maximum_encoded_octets": 39184
+      },
+      "encoded_length": 39184,
+      "kind": "REQUEST",
+      "legacy_encoded_length": 39186,
+      "sha256": "f217966a7c0a3b96639db9cc0f57d64594e6c77616fb7449fbc2e628fd9b3a48"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 1048569,
+        "kind": "DATA",
+        "maximum_encoded_octets": 1048574
+      },
+      "encoded_length": 1048574,
+      "kind": "DATA",
+      "legacy_encoded_length": 1048576,
+      "sha256": "58540c3ef5b09f8a036e5922566dc3552708e9cf6e56dd1febad81b3c1c1a949"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33334,
+        "kind": "RECEIPT",
+        "maximum_encoded_octets": 33339
+      },
+      "encoded_length": 33339,
+      "kind": "RECEIPT",
+      "legacy_encoded_length": 33341,
+      "sha256": "1feb115aa061926950e4e05fb156eb38cf47d6d0656f9d699c1de3b3ac8857f9"
+    },
+    {
+      "analysis": {
+        "envelope_octets": 4,
+        "form_octets": 1,
+        "inherited_content_octets": 33319,
+        "kind": "FAILURE",
+        "maximum_encoded_octets": 33324
+      },
+      "encoded_length": 33324,
+      "kind": "FAILURE",
+      "legacy_encoded_length": 33326,
+      "sha256": "93725ec9fbdea10272f071cbcde93292ede4f310efead3cb1418c5528bc68fce"
+    }
+  ],
+  "schema": "bempic-reference-v0.1-public-experimental-codec-vectors",
+  "specification_commit": "7d29453c87b6f08f1abf6214c4ca64dd82030e99",
+  "tuple_validation_vectors": [
+    {
+      "codec_id": 65536,
+      "expected": "accept",
+      "name": "allocated-public-experimental",
+      "parameters_hex": "",
+      "revision": 1,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 0,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "reserved-zero",
+      "parameters_hex": "",
+      "revision": 1,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 4294967295,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "reserved-maximum",
+      "parameters_hex": "",
+      "revision": 1,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 4294901761,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "historical-private-use",
+      "parameters_hex": "",
+      "revision": 2,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 65536,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "revision-zero-downgrade",
+      "parameters_hex": "",
+      "revision": 0,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 65537,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "unknown-public-id",
+      "parameters_hex": "",
+      "revision": 1,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 65536,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "unsupported-revision",
+      "parameters_hex": "",
+      "revision": 2,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    },
+    {
+      "codec_id": 65536,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "message-manifest-schema-unsupported",
+      "parameters_hex": "",
+      "revision": 1,
+      "schema_fingerprint": "0ac001efba42837aade054401d9d307d16ad4715feac288fcb3d1711e4b961da"
+    },
+    {
+      "codec_id": 65536,
+      "expected": "UNSUPPORTED_CODEC-before-mutation",
+      "name": "non-empty-parameters",
+      "parameters_hex": "00",
+      "revision": 1,
+      "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
+    }
+  ],
+  "vectors": [
+    {
+      "encoded_hex": "b10101",
+      "encoded_length": 3,
+      "kind": "valid",
+      "name": "profile-capabilities"
+    },
+    {
+      "encoded_hex": "b24301563e72099a54583cca1df3c8417e5295c985ce49f7670d37ea2bdd008cdafcae64649caad17af629b24b48f0f0c85f8e3490cd09fdd9bb4903c70309c23257051015",
+      "encoded_length": 69,
+      "kind": "valid-boundary",
+      "name": "cold-full-summary-100"
+    },
+    {
+      "encoded_hex": "b22102fed5b82d065684541187ccfec399648cdf0fdcd541f97fcb5c03338b443817b1",
+      "encoded_length": 35,
+      "kind": "valid-boundary",
+      "name": "warm-cached-summary-100",
+      "requires_exact_cached_summary": true
+    },
+    {
+      "expected_error": "truncated",
+      "input_hex": "b101",
+      "kind": "invalid-truncated",
+      "name": "truncated-capabilities"
+    },
+    {
+      "expected_error": "compact envelope length",
+      "input_hex": "b10201",
+      "kind": "invalid-malformed",
+      "name": "false-envelope-length"
+    },
+    {
+      "expected_error": "non-canonical varint",
+      "input_hex": "b1810001",
+      "kind": "invalid-noncanonical",
+      "name": "overlong-body-length-varint"
+    },
+    {
+      "expected_error": "cached summary context",
+      "input_hex": "b22102fed5b82d065684541187ccfec399648cdf0fdcd541f97fcb5c03338b443817b1",
+      "kind": "invalid-context",
+      "name": "cached-summary-without-context"
+    },
+    {
+      "expected_error": "cached summary binding",
+      "input_hex": "b22102fed5b82d065684541187ccfec399648cdf0fdcd541f97fcb5c03338b443817b0",
+      "kind": "invalid-context",
+      "name": "cached-summary-binding-mismatch",
+      "requires_exact_cached_summary": true
+    },
+    {
+      "expected_error": "non-canonical full cached summary",
+      "input_hex": "b24301563e72099a54583cca1df3c8417e5295c985ce49f7670d37ea2bdd008cdafcae64649caad17af629b24b48f0f0c85f8e3490cd09fdd9bb4903c70309c23257051015",
+      "kind": "invalid-noncanonical",
+      "name": "full-summary-when-cache-matches"
+    },
+    {
+      "expected_error": "compact operation size before body allocation",
+      "kind": "invalid-one-past",
+      "name": "one-past-outer-maximum",
+      "symbolic_octets": 1048577
+    }
+  ]
+}

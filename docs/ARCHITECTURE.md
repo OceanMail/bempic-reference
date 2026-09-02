@@ -28,7 +28,8 @@ The separate Rust `v01` modules implement the merged full-width semantic model
 and a second disposable record profile. They consume RFC 8785 descriptor
 fingerprints, including core revision 2 fingerprint
 `c4a686e7e9c6a40a5f187259a376b26cfc1d355179fd9fff487e105aeeac7302`.
-No codec ID is registered, and neither experimental profile is a wire standard.
+The v0.1 path uses allocated public experimental tuple `0x00010000/1`; its
+allocation is not approval, mandatory status, or a stable wire standard.
 
 DCCL is prior art for those design properties only. This project has no DCCL
 dependency and does not use or claim compatibility with the DCCL wire format.
@@ -77,11 +78,12 @@ exercised without adding lower-layer routing or fragmentation behavior.
 The committed tranche-3 measurement artifact reports all 18 required counters,
 including stable-direction semantic bytes, useful payload to first body and
 commit, exact quote error, protocol overhead, warm/cold no-change size, and
-persistent-resume evidence. Maximum-size analyses remain arithmetic proofs for
-the disposable B1/private implementations only; every declared maximum has a
-valid encoded witness in tests, but none is an approved codec.
+  persistent-resume evidence. Maximum-size analyses are arithmetic proofs for
+  the disposable B1 and public experimental profiles; every declared maximum
+  has a valid encoded witness, but the public allocation is not approved,
+  mandatory, or stable.
 
-The private-use compact revision-2 candidate adds a strict, length-delimited
+The public experimental compact tuple `0x00010000/1` adds a strict, length-delimited
 outer image and two lossless aliases. Its static capability alias restores the
 exact full profile fields. Its warm-summary alias is valid only with the exact
 durable peer/collection checkpoint supplied as explicit codec context; absent,
@@ -89,15 +91,16 @@ stale, or mismatched context fails before an operation is returned. Cold
 summaries still carry the full 32-octet collection ID and digest. This is
 application-state compression, not M4P state, and it changes no persistence or
 receipt semantics. The candidate is documented in
-[`EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](EXPERIMENTAL-COMPACT-CODEC-v0.1.md) and
-remains nonconformant until the specification project reviews the alias model
-and performs an experimental allocation.
+  [`EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](EXPERIMENTAL-COMPACT-CODEC-v0.1.md).
+  Its allocation does not make it approved or conformant. Revision 1 defines
+  no canonical manifest-instance encoding, so the semantic manifest fixture is
+  deliberately not treated as a codec representation.
 
-The compact implementation exposes an explicit codec-ID/revision generation
-input so an eventual specification allocation can regenerate the static
-capability alias without a source edit. Committed evidence always supplies
-private identity `0xffff0001/2`; alternate identities in tests are explicitly
-unallocated inputs and make no registry claim.
+The active implementation, generator, verifier, and durable guards accept the
+exact public tuple only. Reserved, private-use, revision-zero, unknown,
+unsupported-revision, mixed-peer, parameter-mismatched, and schema-mismatched
+values reject before durable mutation. The old `0xffff0001/2` material is
+historical provenance only and is incompatible with the public tuple.
 
 ## Semantic evidence boundary
 

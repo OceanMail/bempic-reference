@@ -1,7 +1,7 @@
 # BEMPIC v0.1 conformance evidence matrix
 
 Specification authority: `Gordonfive/bempic`, merge commit
-`10fc1ddca0b16c974d29a24b6ff2bef189663a1f`.
+`7d29453c87b6f08f1abf6214c4ca64dd82030e99`.
 
 Implementation status: **blocked; no BEMPIC v0.1.0 conformance claim**. The
 machine-readable authority for exact requirement text, evidence, gaps, tool
@@ -16,6 +16,10 @@ Status meanings:
   absent where local implementation was required;
 - `blocked`: completion requires an unresolved specification/governance,
   licensing, external-review, or delivery dependency.
+
+Current requirement counts: **65 pass, 6 partial, 1 fail, 4 blocked (76
+total)**. Mandatory-vector counts: **12 pass, 0 partial, 0 fail, 3 blocked (15
+total)**.
 
 ## Semantic checklist
 
@@ -49,17 +53,17 @@ Status meanings:
 
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
-| CODEC-01 | blocked | Codec `0xffff0001/2` is explicitly private-use and nonconformant; the specification registry has no experimental allocation. |
+| CODEC-01 | pass | Public codec `0x00010000/1` is allocated experimental at the pinned specification commit; the evidence explicitly records that it is not approved, mandatory, stable, or a production-security promise. |
 | CODEC-02 | pass | Canonical schema bytes and exact 32-octet fingerprints are published. |
-| CODEC-03 | pass | The compact-candidate profile documents field order, widths, presence, bounds, canonical forms, and explicit numeric-precision N/A. |
+| CODEC-03 | pass | The public experimental profile documents field order, widths, presence, bounds, canonical forms, and explicit numeric-precision N/A. |
 | CODEC-04 | pass | All seven operations use complete length-delimited experimental records. |
-| CODEC-05 | pass | Candidate per-operation maxima and exact opaque-schema size limits are declared. |
-| CODEC-06 | pass | Candidate exact arithmetic sizing agrees with serialization over 4,100 generated payload sizes. |
-| CODEC-07 | pass | Candidate proof terms and reaching-witness digests cover all seven operations. |
+| CODEC-05 | pass | Public-profile per-operation maxima and exact opaque-schema size limits are declared. |
+| CODEC-06 | pass | Exact arithmetic sizing agrees with serialization over 4,100 generated payload sizes. |
+| CODEC-07 | pass | Public-profile proof terms and reaching-witness digests cover all seven operations, with CAPABILITIES/OFFER constrained to the supported tuple and empty parameters. |
 | CODEC-08 | pass | Explicit-context encoding is deterministic; compact forms, minimal varints, cache use, and inherited fields decode strictly. |
 | CODEC-09 | pass | Optional/critical extension behavior is executable. |
 | CODEC-10 | pass | Strict readers, outer one-past, and the V04/V07 scalar/count/nesting/allocation cases reject before durable mutation. |
-| CODEC-11 | partial | Twelve mandatory rows pass; V01/V02 public bytes remain blocked on allocation and V09 on external M4P review. |
+| CODEC-11 | partial | Twelve mandatory rows pass; V01/V02 canonical manifest bytes remain blocked because public revision 1 defines no manifest-instance encoding, and V09 remains blocked on external M4P review. |
 | CODEC-12 | pass | Independent Python reproduces the bundle digest, schemas, semantic values, full IDs, trace digests, compact forms, and V08/V12/V15 inventories. |
 
 ## Persistence and crash cases
@@ -98,11 +102,11 @@ Status meanings:
 | REF-05 | pass | Append checkpoints, delta/full reconciliation, and durable cursors pass. |
 | REF-06 | pass | Hard total/directional budgets, exact preflight, and accounting are one integrated v0.1 path. |
 | REF-07 | pass | Full-width crash/reopen, durable immutable bindings, durable single-use retry allowance, every endpoint restart mode, nine storage boundaries, source change, replay, quarantine, and retry pass. |
-| REF-08 | pass | V13 executes compatible, version/schema/codec incompatible, deterministic tie, stale-cache recovery, optional, and critical-extension traces. |
-| REF-09 | blocked | The private compact profile, maxima, witnesses, and verifier exist, but no specification-registry experimental allocation exists. |
+| REF-08 | pass | V13 executes the public compatible tuple, stale-cache recovery, deterministic generic tie, optional/critical extensions, and reserved/private/revision-zero/unknown/mismatched/mixed-peer rejection before durable replacement. |
+| REF-09 | pass | The allocated public experimental tuple has an explicit profile, empty canonical parameters, exact profile-constrained maxima, reaching witnesses, vectors, and independent verification. |
 | REF-10 | pass | Tool/version/duration/corpus digest and zero findings are published in `conformance/fuzz-report.json`. |
-| REF-11 | partial | The deterministic V01–V15 bundle passes exact-head Ubuntu, Windows, macOS, and Python CI for decided behavior; three catalog rows remain explicitly blocked by allocation or external review. |
-| REF-12 | pass | Independent Python verifies the complete tranche-3 artifact and the retained private compact pack. |
+| REF-11 | partial | The deterministic V01–V15 bundle covers decided behavior; V01/V02 await normative manifest encoding and V09 awaits external review. Exact-head cross-platform CI for this adoption is recorded in the work report. |
+| REF-12 | pass | Independent Python verifies the complete tranche-3 artifact and active public experimental codec pack. |
 | REF-13 | partial | Oracle and differential tests pass; no maintainer-accepted parity disposition exists. |
 | REF-14 | blocked | Raw/MIME/candidate/interruption/persistence/full-restart figures exist; a legal B2F oracle does not. |
 | REF-15 | pass | Deferred payload, total budgets, durable final prefix, and deterministic quote tests pass. |
@@ -114,7 +118,7 @@ Status meanings:
 | ID | Status | Evidence and remaining gap |
 |---|---|---|
 | ACCEPT-01 | fail | Not all correctness checklist items pass. |
-| ACCEPT-02 | pass | Prescribed 100-message private candidate: warm 35 B (limit 64), cold 75 B (limit 128); B1 comparison remains 88/292 B. |
+| ACCEPT-02 | pass | Prescribed 100-message public experimental tuple: warm 35 B (limit 64), cold 75 B (limit 128); B1 comparison remains 88/292 B. |
 | ACCEPT-03 | pass | Known checkpoint sends only sequences after the retained generation; old entries are not offered. |
 | ACCEPT-04 | pass | Integrated preflight predicts every submitted record exactly and no total or directional budget is crossed. |
 | ACCEPT-05 | pass | No unselected attachment payload. |
@@ -131,10 +135,12 @@ Status meanings:
   [`conformance/fuzz-report.json`](../conformance/fuzz-report.json).
 - Experimental blocked/nonconformant v0.1 bundle:
   [`test-vectors/v0.1-experimental/manifest.json`](../test-vectors/v0.1-experimental/manifest.json),
-  digest `7fa71ac6cdc8e37fea6d23389f12a562f239da5d5f5c5c1e8a41e198e26e372b`.
+  digest `f510801864374337908b2869c1db811781d0c007a5ed7ece5dce9e639062e9ec`.
 - V01–V15 inventory and executed evidence:
   [`test-vectors/v0.1-experimental/catalog.json`](../test-vectors/v0.1-experimental/catalog.json).
 - Independent verifier: [`scripts/verify_conformance.py`](../scripts/verify_conformance.py).
+- Active public experimental codec vectors:
+  [`test-vectors/v0.1-public-experimental-codec/vectors.json`](../test-vectors/v0.1-public-experimental-codec/vectors.json).
 
 The B2F/LZHUF row is a genuine release blocker. No incompatibly licensed code
 or unreviewed benchmark output has been imported, vendored, or substituted.

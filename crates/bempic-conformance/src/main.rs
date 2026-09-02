@@ -5,9 +5,9 @@ mod tranche3;
 
 use bempic_model::v01::{
     fingerprint_from_hex, ContentDigest, MessageManifest, ObjectId, PartDescriptor, PartRole,
-    PreparedRepresentation, RepresentationDescriptor, RepresentationId, SchemaFingerprint,
-    MAX_CODEC_PARAMETER_OCTETS, MAX_OPERATION_OCTETS, MAX_REPRESENTATION_OCTETS,
-    OPAQUE_SCHEMA_FINGERPRINT_HEX, SPECIFICATION_COMMIT,
+    PreparedRepresentation, RepresentationDescriptor, RepresentationId, MAX_OPERATION_OCTETS,
+    MAX_REPRESENTATION_OCTETS, MESSAGE_SCHEMA_FINGERPRINT_HEX, OPAQUE_SCHEMA_FINGERPRINT_HEX,
+    SPECIFICATION_COMMIT,
 };
 use bempic_sim::{
     v01::{
@@ -22,22 +22,27 @@ use bempic_sync::v01::{
     RepresentationDataRequest, RepresentationSelection, Request, SecurityClass, Summary,
 };
 use bempic_sync::v01_compact::{
-    self as compact, Context as CompactContext, PRIVATE_CODEC_ID, PRIVATE_CODEC_REVISION,
+    self as compact, Context as CompactContext, EXPERIMENTAL_CODEC_ID, EXPERIMENTAL_CODEC_REVISION,
 };
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use std::collections::BTreeSet;
 use std::env;
 use std::error::Error;
+use std::fs;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::Path;
 use std::time::Instant;
 
 const TOOL_NAME: &str = "bempic-deterministic-malformed-runner";
 const TOOL_VERSION: &str = "0.1.0";
 const RANDOM_CASES: u64 = 50_000;
-const COMPACT_SPECIFICATION_COMMIT: &str = "40da35bd150290d039a185fb95388422ede5f1d1";
+const COMPACT_SPECIFICATION_COMMIT: &str = "7d29453c87b6f08f1abf6214c4ca64dd82030e99";
 const COMPACT_PROFILE_SHA256: &str =
-    "0633ed81272a89d085ceb8ae01aef82ac1749a9babe2fac9b59d0d1f3529fce8";
+    "bc82364f7ac2f563bbdc0ea15f3d9b1f9127d6ac88376bf19a6dc642dc731127";
+const COMPACT_ARTIFACT_PATH: &str =
+    "benchmarks/results/compact-codec-public-evidence-2026-09-02.json";
+const COMPACT_VECTOR_PATH: &str = "test-vectors/v0.1-public-experimental-codec/vectors.json";
 
 #[derive(Serialize)]
 struct Report {
@@ -67,8 +72,8 @@ fn prepared() -> PreparedRepresentation {
         b"conformance payload".to_vec(),
         None,
         fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).expect("published fingerprint"),
-        0xffff_0001,
-        1,
+        EXPERIMENTAL_CODEC_ID,
+        EXPERIMENTAL_CODEC_REVISION,
         Vec::new(),
         None,
     )
@@ -80,8 +85,8 @@ fn prepared_body(size: usize) -> PreparedRepresentation {
         (0_u8..=255).cycle().take(size).collect(),
         None,
         fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).expect("published fingerprint"),
-        0xffff_0001,
-        1,
+        EXPERIMENTAL_CODEC_ID,
+        EXPERIMENTAL_CODEC_REVISION,
         Vec::new(),
         None,
     )
@@ -315,7 +320,7 @@ fn run() -> Result<Report, Box<dyn Error>> {
         specification_commit: SPECIFICATION_COMMIT,
         tool_name: TOOL_NAME,
         tool_version: TOOL_VERSION,
-        methodology: "deterministic LCG arbitrary records against B1 and compact candidate; every strict truncation, trailing-byte, and false-envelope-length mutation of three valid seeds per codec; exact-size/round-trip payload sweep for both codecs",
+        methodology: "deterministic LCG arbitrary records against B1 and public experimental compact codec; every strict truncation, trailing-byte, and false-envelope-length mutation of three valid seeds per codec; exact-size/round-trip payload sweep for both codecs",
         deterministic_seed,
         duration_ms: started.elapsed().as_millis(),
         random_cases: RANDOM_CASES,
@@ -345,8 +350,8 @@ fn prescribed_v01_summary() -> Result<Summary, Box<dyn Error>> {
             body,
             None,
             compact::PROFILE_SCHEMA_FINGERPRINT,
-            PRIVATE_CODEC_ID,
-            PRIVATE_CODEC_REVISION,
+            EXPERIMENTAL_CODEC_ID,
+            EXPERIMENTAL_CODEC_REVISION,
             Vec::new(),
             None,
         )?;
@@ -394,10 +399,10 @@ fn maximum_offer_entries() -> Vec<CollectionEntry> {
             part_id: u32::from(index),
             descriptor: RepresentationDescriptor {
                 representation_id: RepresentationId([index.wrapping_add(128); 32]),
-                schema_fingerprint: SchemaFingerprint([index; 32]),
-                codec_id: u32::from(index),
-                codec_revision: u32::MAX,
-                codec_parameters: vec![0x5a; MAX_CODEC_PARAMETER_OCTETS],
+                schema_fingerprint: compact::PROFILE_SCHEMA_FINGERPRINT,
+                codec_id: EXPERIMENTAL_CODEC_ID,
+                codec_revision: EXPERIMENTAL_CODEC_REVISION,
+                codec_parameters: Vec::new(),
                 encoded_length: MAX_REPRESENTATION_OCTETS,
                 decoded_length: Some(MAX_REPRESENTATION_OCTETS),
                 content_digest: ContentDigest([index; 32]),
@@ -410,9 +415,7 @@ fn maximum_offer_entries() -> Vec<CollectionEntry> {
 #[allow(clippy::too_many_lines)]
 fn maximum_witness_records() -> Vec<(OperationKind, Record)> {
     let extensions = maximum_record_extensions();
-    let schemas = (0_u8..16)
-        .map(|index| SchemaFingerprint([index; 32]))
-        .collect::<Vec<_>>();
+    let schemas = vec![compact::PROFILE_SCHEMA_FINGERPRINT];
     let capabilities = Record {
         operation: Operation::Capabilities(Capabilities {
             protocol_generations: (0_u16..8)
@@ -424,10 +427,9 @@ fn maximum_witness_records() -> Vec<(OperationKind, Record)> {
             schema_fingerprints: schemas.clone(),
             codec_preferences: schemas
                 .iter()
-                .enumerate()
-                .map(|(index, schema_fingerprint)| CodecPreference {
-                    codec_id: u32::try_from(index).expect("sixteen indexes fit u32"),
-                    revision: u32::MAX,
+                .map(|schema_fingerprint| CodecPreference {
+                    codec_id: EXPERIMENTAL_CODEC_ID,
+                    revision: EXPERIMENTAL_CODEC_REVISION,
                     schema_fingerprint: *schema_fingerprint,
                 })
                 .collect(),
@@ -584,13 +586,17 @@ fn compact_codec_evidence() -> Result<serde_json::Value, Box<dyn Error>> {
         "schema": "bempic-reference-v0.1-compact-codec-evidence",
         "specification_commit": COMPACT_SPECIFICATION_COMMIT,
         "codec": {
-            "id": PRIVATE_CODEC_ID,
-            "revision": PRIVATE_CODEC_REVISION,
-            "status": "implementation-local-private-use-nonconformant",
-            "registry_allocation": null,
+            "id": EXPERIMENTAL_CODEC_ID,
+            "revision": EXPERIMENTAL_CODEC_REVISION,
+            "status": "public-experimental-not-approved-not-mandatory",
+            "registry_allocation": "experimental",
+            "approved": false,
+            "mandatory": false,
+            "stable_wire_promise": false,
+            "production_security_promise": false,
             "canonical_parameters_hex": "",
             "profile": "docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md",
-            "profile_sha256": COMPACT_PROFILE_SHA256,
+            "normative_profile_sha256": COMPACT_PROFILE_SHA256,
         },
         "prescribed_v01_fixture": {
             "messages": 100,
@@ -601,6 +607,8 @@ fn compact_codec_evidence() -> Result<serde_json::Value, Box<dyn Error>> {
             "object_id_rule": "SHA-256(BEMPIC-V01-OBJECT\\0 || U32(index))",
             "first_index": 0,
             "last_index": 99,
+            "collection_entry_semantics": "opaque-body-surrogate-not-canonical-manifest-representation",
+            "mandatory_vector_status": "blocked-no-normative-manifest-instance-encoding",
         },
         "before_b1": {
             "capability_operation_octets": legacy_capabilities.len(),
@@ -629,7 +637,7 @@ fn compact_codec_evidence() -> Result<serde_json::Value, Box<dyn Error>> {
                 {"range": "87..88", "octets": 1, "field": "empty record-extension count"}
             ]
         },
-        "after_compact_candidate": {
+        "after_public_experimental_codec": {
             "capability_operation_octets": compact_capabilities.len(),
             "warm_no_change_octets": warm,
             "warm_gate_maximum_octets": 64,
@@ -642,18 +650,18 @@ fn compact_codec_evidence() -> Result<serde_json::Value, Box<dyn Error>> {
             "warm_summary_hex": hex::encode(&compact_warm_summary),
             "cold_summary_hex": hex::encode(&compact_cold_summary),
             "capabilities_segments": [
-                {"range": "0..1", "octets": 1, "field": "candidate marker and CAPABILITIES tag"},
+                {"range": "0..1", "octets": 1, "field": "experimental codec marker and CAPABILITIES tag"},
                 {"range": "1..2", "octets": 1, "field": "canonical body length"},
                 {"range": "2..3", "octets": 1, "field": "exact static profile alias"}
             ],
             "warm_summary_segments": [
-                {"range": "0..1", "octets": 1, "field": "candidate marker and SUMMARY tag"},
+                {"range": "0..1", "octets": 1, "field": "experimental codec marker and SUMMARY tag"},
                 {"range": "1..2", "octets": 1, "field": "canonical body length"},
                 {"range": "2..3", "octets": 1, "field": "exact durable-checkpoint alias"},
                 {"range": "3..35", "octets": 32, "field": "full SHA-256 binding of the exact cached summary"}
             ],
             "cold_summary_segments": [
-                {"range": "0..1", "octets": 1, "field": "candidate marker and SUMMARY tag"},
+                {"range": "0..1", "octets": 1, "field": "experimental codec marker and SUMMARY tag"},
                 {"range": "1..2", "octets": 1, "field": "canonical body length"},
                 {"range": "2..3", "octets": 1, "field": "full-summary form"},
                 {"range": "3..35", "octets": 32, "field": "full collection ID"},
@@ -675,6 +683,23 @@ fn compact_codec_evidence() -> Result<serde_json::Value, Box<dyn Error>> {
             {"name": "full-summary-when-cache-matches", "kind": "invalid-noncanonical", "input_hex": hex::encode(&compact_cold_summary), "expected_error": "non-canonical full cached summary"},
             {"name": "one-past-outer-maximum", "kind": "invalid-one-past", "symbolic_octets": compact::MAX_COMPACT_RECORD_OCTETS + 1, "expected_error": "compact operation size before body allocation"}
         ],
+        "tuple_validation_vectors": [
+            {"name": "allocated-public-experimental", "codec_id": EXPERIMENTAL_CODEC_ID, "revision": EXPERIMENTAL_CODEC_REVISION, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "accept"},
+            {"name": "reserved-zero", "codec_id": 0, "revision": 1, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "reserved-maximum", "codec_id": u32::MAX, "revision": 1, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "historical-private-use", "codec_id": 0xffff_0001_u32, "revision": 2, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "revision-zero-downgrade", "codec_id": EXPERIMENTAL_CODEC_ID, "revision": 0, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "unknown-public-id", "codec_id": EXPERIMENTAL_CODEC_ID + 1, "revision": 1, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "unsupported-revision", "codec_id": EXPERIMENTAL_CODEC_ID, "revision": EXPERIMENTAL_CODEC_REVISION + 1, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "message-manifest-schema-unsupported", "codec_id": EXPERIMENTAL_CODEC_ID, "revision": EXPERIMENTAL_CODEC_REVISION, "schema_fingerprint": MESSAGE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "", "expected": "UNSUPPORTED_CODEC-before-mutation"},
+            {"name": "non-empty-parameters", "codec_id": EXPERIMENTAL_CODEC_ID, "revision": EXPERIMENTAL_CODEC_REVISION, "schema_fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX, "parameters_hex": "00", "expected": "UNSUPPORTED_CODEC-before-mutation"}
+        ],
+        "manifest_codec": {
+            "status": "blocked-no-normative-instance-encoding",
+            "schema_fingerprint": MESSAGE_SCHEMA_FINGERPRINT_HEX,
+            "public_revision_1_supports_schema": false,
+            "pretty_json_fixture_is_conforming_codec_bytes": false
+        },
         "numeric_precision_vectors": {"status": "not-applicable", "reason": "profile has no approximate numeric fields"},
         "security": {"class": "public", "authentication": false, "confidentiality": false},
     }))
@@ -748,7 +773,7 @@ fn tranche_two_measurements() -> Result<serde_json::Value, Box<dyn Error>> {
     Ok(serde_json::json!({
         "schema": "bempic-reference-v0.1-conformance-tranche-2-measurements",
         "specification_commit": SPECIFICATION_COMMIT,
-        "codec_status": "experimental-unregistered-disposable",
+        "codec_status": "comparison-b1-experimental-unregistered-disposable",
         "integrated_body_fixture": {
             "representation_octets": representation.descriptor.encoded_length,
             "contacts": integrated.contacts.len(),
@@ -814,7 +839,7 @@ fn tranche_two_measurements() -> Result<serde_json::Value, Box<dyn Error>> {
 fn verify_compact_codec_artifact() -> Result<(), Box<dyn Error>> {
     let generated = compact_codec_evidence()?;
     let committed: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../benchmarks/results/compact-codec-evidence-2026-09-01.json"
+        "../../../benchmarks/results/compact-codec-public-evidence-2026-09-02.json"
     ))?;
     if generated != committed {
         return Err("committed compact-codec evidence differs from deterministic output".into());
@@ -823,14 +848,44 @@ fn verify_compact_codec_artifact() -> Result<(), Box<dyn Error>> {
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
             "status": "pass",
-            "warm_no_change_octets": generated["after_compact_candidate"]["warm_no_change_octets"],
-            "cold_no_change_octets": generated["after_compact_candidate"]["cold_no_change_octets"],
+            "warm_no_change_octets": generated["after_public_experimental_codec"]["warm_no_change_octets"],
+            "cold_no_change_octets": generated["after_public_experimental_codec"]["cold_no_change_octets"],
             "maximum_witnesses": generated["maximum_witnesses"].as_array().map_or(0, Vec::len),
         }))?
     );
     Ok(())
 }
 
+fn write_compact_codec_artifacts() -> Result<(), Box<dyn Error>> {
+    let artifact = compact_codec_evidence()?;
+    let mut artifact_bytes = serde_json::to_vec_pretty(&artifact)?;
+    artifact_bytes.push(b'\n');
+    let artifact_sha256 = hex::encode(Sha256::digest(&artifact_bytes));
+    let vector_pack = serde_json::json!({
+        "schema": "bempic-reference-v0.1-public-experimental-codec-vectors",
+        "specification_commit": COMPACT_SPECIFICATION_COMMIT,
+        "codec": artifact["codec"].clone(),
+        "evidence_artifact": {"path": COMPACT_ARTIFACT_PATH, "sha256": artifact_sha256},
+        "vectors": artifact["boundary_vectors"].clone(),
+        "tuple_validation_vectors": artifact["tuple_validation_vectors"].clone(),
+        "maximum_witnesses": artifact["maximum_witnesses"].clone(),
+    });
+    let mut vector_bytes = serde_json::to_vec_pretty(&vector_pack)?;
+    vector_bytes.push(b'\n');
+    for (path, bytes) in [
+        (COMPACT_ARTIFACT_PATH, artifact_bytes),
+        (COMPACT_VECTOR_PATH, vector_bytes),
+    ] {
+        let path = Path::new(path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, bytes)?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_lines)]
 fn main() -> Result<(), Box<dyn Error>> {
     if env::args().nth(1).as_deref() == Some("write-tranche3-evidence") {
         return tranche3::write_artifacts(std::path::Path::new("."));
@@ -844,6 +899,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     if env::args().nth(1).as_deref() == Some("verify-compact-codec-evidence") {
         return verify_compact_codec_artifact();
+    }
+    if env::args().nth(1).as_deref() == Some("write-compact-codec-evidence") {
+        return write_compact_codec_artifacts();
     }
     if env::args().nth(1).as_deref() == Some("compact-codec-evidence") {
         println!(
@@ -902,7 +960,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let value = serde_json::json!({
             "schema": "bempic-v01-acceptance-measurements",
             "specification_commit": SPECIFICATION_COMMIT,
-            "codec_status": "experimental-unregistered",
+            "codec_status": "public-experimental-not-approved-not-mandatory",
             "capability_operation_octets": capability_octets,
             "warm_no_change_octets": warm_no_change_octets,
             "warm_gate_maximum_octets": 64,
@@ -919,6 +977,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             "{}",
             serde_json::to_string_pretty(&tranche_two_measurements()?)?
         );
+        return Ok(());
+    }
+    if env::args().nth(1).as_deref() == Some("write-fuzz-report") {
+        let report = run()?;
+        let mut bytes = serde_json::to_vec_pretty(&report)?;
+        bytes.push(b'\n');
+        fs::write("conformance/fuzz-report.json", bytes)?;
+        if report.unresolved_findings > 0 {
+            return Err("unresolved malformed-input or property finding".into());
+        }
         return Ok(());
     }
     let report = run()?;

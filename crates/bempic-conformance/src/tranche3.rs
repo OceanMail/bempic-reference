@@ -19,7 +19,7 @@ use bempic_sync::v01::{
     ProtocolGeneration, Reconciliation, Record, SecurityClass,
 };
 use bempic_sync::v01_compact::{
-    self as compact, CodecIdentity, Context as CompactContext, PRIVATE_CODEC_IDENTITY,
+    self as compact, Context as CompactContext, EXPERIMENTAL_CODEC_IDENTITY,
 };
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -143,8 +143,8 @@ fn opaque(bytes: Vec<u8>) -> Result<PreparedRepresentation, ModelError> {
         bytes,
         None,
         fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX)?,
-        PRIVATE_CODEC_IDENTITY.id,
-        PRIVATE_CODEC_IDENTITY.revision,
+        EXPERIMENTAL_CODEC_IDENTITY.id,
+        EXPERIMENTAL_CODEC_IDENTITY.revision,
         Vec::new(),
         None,
     )
@@ -616,15 +616,8 @@ fn semantic_accounting(
     oceanmail_fixture_value: &Value,
 ) -> Result<Value, Box<dyn Error>> {
     let manifest_bytes = json_bytes(manifest_fixture_value)?;
-    let manifest_representation = PreparedRepresentation::prepare(
-        manifest_bytes.clone(),
-        None,
-        fingerprint_from_hex(MESSAGE_SCHEMA_FINGERPRINT_HEX)?,
-        PRIVATE_CODEC_IDENTITY.id,
-        PRIVATE_CODEC_IDENTITY.revision,
-        Vec::new(),
-        None,
-    )?;
+    let manifest_fixture_id = RepresentationId(Sha256::digest(&manifest_bytes).into());
+    let manifest_schema = fingerprint_from_hex(MESSAGE_SCHEMA_FINGERPRINT_HEX)?;
     let body = opaque("Resumé\n".as_bytes().to_vec())?;
     let response = opaque(b"ACK".to_vec())?;
     let manifest_semantic = manifest_fixture_value["semantic_octets"]
@@ -636,7 +629,7 @@ fn semantic_accounting(
     let mut accounting = SemanticAccounting::default();
     accounting.record_selection(
         SemanticDirection::Send,
-        manifest_representation.descriptor.representation_id,
+        manifest_fixture_id,
         manifest_semantic,
     )?;
     accounting.record_selection(
@@ -660,7 +653,9 @@ fn semantic_accounting(
             "send",
             "endpoint-a",
             "endpoint-b",
-            &manifest_representation,
+            manifest_fixture_id,
+            manifest_schema,
+            "semantic-fixture-sha256-not-codec-representation",
             MANIFEST_FIXTURE_PATH,
             &manifest_bytes,
             manifest_semantic,
@@ -670,7 +665,9 @@ fn semantic_accounting(
             "send",
             "endpoint-a",
             "endpoint-b",
-            &body,
+            body.descriptor.representation_id,
+            body.descriptor.schema_fingerprint,
+            "public-codec-representation-id",
             OCEANMAIL_FIXTURE_PATH,
             &json_bytes(oceanmail_fixture_value)?,
             body_semantic,
@@ -680,7 +677,9 @@ fn semantic_accounting(
             "receive",
             "endpoint-b",
             "endpoint-a",
-            &response,
+            response.descriptor.representation_id,
+            response.descriptor.schema_fingerprint,
+            "public-codec-representation-id",
             ACK_FIXTURE_PATH,
             &json_bytes(&ack_fixture())?,
             response_semantic,
@@ -690,13 +689,14 @@ fn semantic_accounting(
     let fixtures = fixture_specs
         .into_iter()
         .map(
-            |(direction, source, destination, representation, path, bytes, semantic, event)| {
+            |(direction, source, destination, representation_id, schema_fingerprint, identity_derivation, path, bytes, semantic, event)| {
                 json!({
                     "direction": direction,
                     "source_endpoint_role": source,
                     "destination_endpoint_role": destination,
-                    "representation_id": representation.descriptor.representation_id.to_string(),
-                    "schema_fingerprint": representation.descriptor.schema_fingerprint.to_string(),
+                    "representation_id": representation_id.to_string(),
+                    "schema_fingerprint": schema_fingerprint.to_string(),
+                    "identity_derivation": identity_derivation,
                     "semantic_fixture_path": path.strip_prefix("test-vectors/v0.1-experimental/").unwrap_or(path),
                     "semantic_fixture_sha256": sha256_hex(bytes),
                     "semantic_fixture_octets": bytes.len().to_string(),
@@ -726,8 +726,8 @@ fn semantic_accounting(
 
 fn catalog() -> Value {
     let entries = [
-        ("V01", "empty-and-equal-collections", "blocked", "Private codec 0xffff0001/2 passes 35/75-octet gates; specification allocation remains unresolved."),
-        ("V02", "known-checkpoint-incremental-delta", "blocked", "Semantic/state result passes; byte-exact public evidence awaits codec allocation."),
+        ("V01", "empty-and-equal-collections", "blocked", "Public experimental codec 0x00010000/1 passes 35/75-octet operation gates; revision 1 defines no canonical message-manifest instance encoding."),
+        ("V02", "known-checkpoint-incremental-delta", "blocked", "Public operation and opaque-representation evidence passes; byte-exact manifest representation evidence awaits a normative manifest codec decision."),
         ("V03", "unknown-checkpoint-bounded-full-fallback", "pass", "257 entries page deterministically as 128/128/1 and cursor reopen is durable."),
         ("V04", "metadata-boundaries", "pass", "All required valid minima/maxima and one-past scalar/count/nesting cases are bundled, including an exact 65,537-decoded-octet aggregate."),
         ("V05", "deferred-attachment-selection", "pass", "Full/preview alternatives and unselected attachment evidence report zero unselected payload."),
@@ -745,11 +745,11 @@ fn catalog() -> Value {
     json!({
         "catalog": "BEMPIC-v0.1-mandatory-vector-inventory",
         "normative_source_commit": SPECIFICATION_COMMIT,
-        "wire_profile": "implementation-local-private-use-nonconformant",
+        "wire_profile": "public-experimental-not-approved-not-mandatory",
         "implementation_status": "blocked-not-conformant",
         "entries": entries.into_iter().map(|(id, name, status, result)| json!({"id": id, "name": name, "status": status, "result": result})).collect::<Vec<_>>(),
         "counts": {"pass": 12, "partial": 0, "fail": 0, "blocked": 3, "total": 15},
-        "remaining_release_blockers": ["codec-allocation", "b2f-legal-oracle", "m4p-external-review", "independent-implementation", "release-candidate-gates"]
+        "remaining_release_blockers": ["manifest-instance-codec", "b2f-qualified-oracle", "m4p-external-review", "independent-implementation", "security-profile", "release-candidate-gates"]
     })
 }
 
@@ -1049,18 +1049,20 @@ const fn failure_code_name(code: FailureCode) -> &'static str {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn negotiation_cases() -> Result<Value, Box<dyn Error>> {
     fn caps(
         protocol: ProtocolGeneration,
         schema: SchemaFingerprint,
         codec_id: u32,
+        revision: u32,
     ) -> Capabilities {
         Capabilities {
             protocol_generations: vec![protocol],
             schema_fingerprints: vec![schema],
             codec_preferences: vec![CodecPreference {
                 codec_id,
-                revision: 1,
+                revision,
                 schema_fingerprint: schema,
             }],
             max_operation_octets: 4096,
@@ -1071,16 +1073,53 @@ fn negotiation_cases() -> Result<Value, Box<dyn Error>> {
         }
     }
     let schema = fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX)?;
-    let compatible = caps(ProtocolGeneration { major: 0, minor: 1 }, schema, 7);
-    let selected = negotiate(&compatible, &compatible)
+    let compatible = caps(
+        ProtocolGeneration { major: 0, minor: 1 },
+        schema,
+        EXPERIMENTAL_CODEC_IDENTITY.id,
+        EXPERIMENTAL_CODEC_IDENTITY.revision,
+    );
+    let selected = compact::negotiate_profile(&compatible, &compatible)
         .map_err(|code| format!("compatible negotiation failed: {code:?}"))?;
-    let incompatible_protocol = caps(ProtocolGeneration { major: 9, minor: 9 }, schema, 7);
+    let incompatible_protocol = caps(
+        ProtocolGeneration { major: 9, minor: 9 },
+        schema,
+        EXPERIMENTAL_CODEC_IDENTITY.id,
+        EXPERIMENTAL_CODEC_IDENTITY.revision,
+    );
     let incompatible_schema = caps(
         ProtocolGeneration { major: 0, minor: 1 },
         SchemaFingerprint([9; 32]),
-        7,
+        EXPERIMENTAL_CODEC_IDENTITY.id,
+        EXPERIMENTAL_CODEC_IDENTITY.revision,
     );
-    let incompatible_codec = caps(ProtocolGeneration { major: 0, minor: 1 }, schema, 8);
+    let incompatible_codec = caps(ProtocolGeneration { major: 0, minor: 1 }, schema, 8, 1);
+    let private_codec = caps(
+        ProtocolGeneration { major: 0, minor: 1 },
+        schema,
+        0xffff_0001,
+        2,
+    );
+    let revision_zero = caps(
+        ProtocolGeneration { major: 0, minor: 1 },
+        schema,
+        EXPERIMENTAL_CODEC_IDENTITY.id,
+        0,
+    );
+    let unsupported_revision = caps(
+        ProtocolGeneration { major: 0, minor: 1 },
+        schema,
+        EXPERIMENTAL_CODEC_IDENTITY.id,
+        EXPERIMENTAL_CODEC_IDENTITY.revision + 1,
+    );
+    let mut mixed_private_public = compatible.clone();
+    mixed_private_public
+        .codec_preferences
+        .push(CodecPreference {
+            codec_id: 0xffff_0001,
+            revision: 2,
+            schema_fingerprint: schema,
+        });
     let mut tie_local = compatible.clone();
     tie_local.codec_preferences = vec![
         CodecPreference {
@@ -1104,7 +1143,7 @@ fn negotiation_cases() -> Result<Value, Box<dyn Error>> {
     store.persist_negotiation([1; 32], 10, selected.clone())?;
     let warm_hit = store.cached_negotiation([1; 32], 10).is_some();
     let stale_miss = store.cached_negotiation([1; 32], 11).is_none();
-    let recovered = negotiate(&compatible, &compatible)
+    let recovered = compact::negotiate_profile(&compatible, &compatible)
         .map_err(|code| format!("stale-cache renegotiation failed: {code:?}"))?;
     store.persist_negotiation([1; 32], 20, recovered.clone())?;
 
@@ -1116,7 +1155,11 @@ fn negotiation_cases() -> Result<Value, Box<dyn Error>> {
             value: vec![1],
         }],
     };
-    let optional_decoded = Record::decode(&optional.encode()?, &BTreeSet::new())?;
+    let optional_decoded = compact::decode(
+        &compact::encode(&optional, CompactContext::default())?,
+        &BTreeSet::new(),
+        CompactContext::default(),
+    )?;
     let critical = Record {
         operation: Operation::Capabilities(compatible.clone()),
         extensions: vec![Extension {
@@ -1128,13 +1171,17 @@ fn negotiation_cases() -> Result<Value, Box<dyn Error>> {
 
     Ok(json!({
         "compatible-tuple": {"result": "pass", "codec_id": selected.codec_id},
-        "incompatible-protocol": {"failure": format!("{:?}", negotiate(&compatible, &incompatible_protocol).unwrap_err())},
-        "incompatible-schema": {"failure": format!("{:?}", negotiate(&compatible, &incompatible_schema).unwrap_err())},
-        "incompatible-codec": {"failure": format!("{:?}", negotiate(&compatible, &incompatible_codec).unwrap_err())},
+        "incompatible-protocol": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &incompatible_protocol).unwrap_err())},
+        "mismatched-schema": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &incompatible_schema).unwrap_err()), "mutation": false},
+        "unknown-codec": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &incompatible_codec).unwrap_err()), "mutation": false},
+        "private-use-codec": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &private_codec).unwrap_err()), "mutation": false},
+        "revision-zero-downgrade": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &revision_zero).unwrap_err()), "mutation": false},
+        "unsupported-revision": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &unsupported_revision).unwrap_err()), "mutation": false},
+        "mixed-private-public-peer": {"failure": format!("{:?}", compact::negotiate_profile(&compatible, &mixed_private_public).unwrap_err()), "mutation": false},
         "preference-tie": {"result": if tie.codec_id == 7 { "pass" } else { "fail" }, "selected_codec_id": tie.codec_id, "rule": "lowest-preference-sum-then-codec-revision-schema"},
         "stale-cache-recovery": {"warm_hit": warm_hit, "stale_miss": stale_miss, "renegotiated": recovered == selected, "fresh_hit": store.cached_negotiation([1; 32], 20).is_some()},
         "unknown-optional-extension": {"skipped": optional_decoded.extensions.is_empty(), "mutation": false},
-        "unknown-critical-extension": {"rejected": Record::decode(&critical.encode()?, &BTreeSet::new()).is_err(), "mutation": false}
+        "unknown-critical-extension": {"rejected": compact::decode(&compact::encode(&critical, CompactContext::default())?, &BTreeSet::new(), CompactContext::default()).is_err(), "mutation": false}
     }))
 }
 
@@ -1172,10 +1219,7 @@ fn immutable_object_evidence(oceanmail: &Value) -> Result<Value, Box<dyn Error>>
 }
 
 fn codec_allocation_readiness() -> Result<Value, Box<dyn Error>> {
-    let explicit = CodecIdentity {
-        id: 0x8000_0042,
-        revision: 9,
-    };
+    let explicit = EXPERIMENTAL_CODEC_IDENTITY;
     let record = Record {
         operation: Operation::Capabilities(compact::profile_capabilities_for(explicit)),
         extensions: Vec::new(),
@@ -1188,12 +1232,13 @@ fn codec_allocation_readiness() -> Result<Value, Box<dyn Error>> {
         explicit,
     )?;
     Ok(json!({
-        "current_id": PRIVATE_CODEC_IDENTITY.id,
-        "current_revision": PRIVATE_CODEC_IDENTITY.revision,
-        "status": "implementation-local-private-use-nonconformant",
-        "registry_allocation": null,
-        "generator_accepts_explicit_id_revision": decoded == record,
-        "test_only_explicit_identity": {"id": explicit.id, "revision": explicit.revision, "claimed_allocation": false},
+        "current_id": EXPERIMENTAL_CODEC_IDENTITY.id,
+        "current_revision": EXPERIMENTAL_CODEC_IDENTITY.revision,
+        "status": "public-experimental-not-approved-not-mandatory",
+        "registry_allocation": "experimental",
+        "generator_accepts_exact_allocated_id_revision": decoded == record,
+        "stable_wire_promise": false,
+        "production_security_promise": false,
         "encoded_profile_alias_length": encoded.len()
     }))
 }
@@ -1211,8 +1256,8 @@ pub fn evidence() -> Result<Value, Box<dyn Error>> {
     let max_descriptor = RepresentationDescriptor {
         representation_id: RepresentationId([0x11; 32]),
         schema_fingerprint: fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX)?,
-        codec_id: PRIVATE_CODEC_IDENTITY.id,
-        codec_revision: PRIVATE_CODEC_IDENTITY.revision,
+        codec_id: EXPERIMENTAL_CODEC_IDENTITY.id,
+        codec_revision: EXPERIMENTAL_CODEC_IDENTITY.revision,
         codec_parameters: Vec::new(),
         encoded_length: MAX_REPRESENTATION_OCTETS,
         decoded_length: Some(MAX_REPRESENTATION_OCTETS),
@@ -1230,7 +1275,7 @@ pub fn evidence() -> Result<Value, Box<dyn Error>> {
         "semantic_accounting": semantic,
         "immutable_object_semantics": immutable_object_evidence(&oceanmail)?,
         "vectors": {
-            "V01": {"status": "blocked", "empty": {"semantic_bytes": "0", "payload_bytes": "0"}, "equal-warm-100": {"bempic_total_bytes": "35", "maximum": "64", "pass": true}, "equal-cold-100": {"bempic_total_bytes": "75", "maximum": "128", "pass": true}, "blocked_by": ["codec-allocation"]},
+            "V01": {"status": "blocked", "empty": {"semantic_bytes": "0", "payload_bytes": "0"}, "equal-warm-100": {"bempic_total_bytes": "35", "maximum": "64", "pass": true}, "equal-cold-100": {"bempic_total_bytes": "75", "maximum": "128", "pass": true}, "blocked_by": ["manifest-instance-codec"]},
             "V02": v02_evidence()?,
             "V03": v03_evidence()?,
             "V04": {"status": "pass", "cases": manifest_cases()?},
@@ -1247,7 +1292,7 @@ pub fn evidence() -> Result<Value, Box<dyn Error>> {
             "V15": {"status": "pass", "cases": v15_cases()?}
         },
         "catalog_counts": {"pass": 12, "partial": 0, "fail": 0, "blocked": 3, "total": 15},
-        "remaining_blockers": ["codec-allocation", "b2f-legal-oracle", "m4p-external-review", "independent-implementation", "release-candidate-gates"]
+        "remaining_blockers": ["manifest-instance-codec", "b2f-qualified-oracle", "m4p-external-review", "independent-implementation", "security-profile", "release-candidate-gates"]
     }))
 }
 
@@ -1327,7 +1372,7 @@ fn v02_evidence() -> Result<Value, Box<dyn Error>> {
         "new_sequence": page.descriptors[0].sequence.to_string(),
         "retransmitted_prior_manifest_bytes": "0",
         "semantic_result": if page.descriptors.len() == 1 && page.descriptors[0].sequence == 101 { "pass" } else { "fail" },
-        "blocked_by": ["codec-allocation"]
+        "blocked_by": ["manifest-instance-codec"]
     }))
 }
 
@@ -1730,7 +1775,7 @@ fn bundle_manifest(files: &BTreeMap<&'static str, Vec<u8>>) -> Result<Value, Box
             {"path": "schemas/message-manifest.schema.jcs", "fingerprint": MESSAGE_SCHEMA_FINGERPRINT_HEX},
             {"path": "schemas/opaque-binary.schema.jcs", "fingerprint": OPAQUE_SCHEMA_FINGERPRINT_HEX}
         ],
-        "codec": {"id": PRIVATE_CODEC_IDENTITY.id, "revision": PRIVATE_CODEC_IDENTITY.revision, "status": "implementation-local-private-use-nonconformant", "registry_allocation": null, "canonical_parameters_hex": "", "declared_max_operation_octets": 1_048_576},
+        "codec": {"id": EXPERIMENTAL_CODEC_IDENTITY.id, "revision": EXPERIMENTAL_CODEC_IDENTITY.revision, "status": "public-experimental-not-approved-not-mandatory", "registry_allocation": "experimental", "approved": false, "mandatory": false, "stable_wire_promise": false, "production_security_promise": false, "canonical_parameters_hex": "", "declared_max_operation_octets": 1_048_576},
         "extensions": [],
         "endpoint_a_binding": {"role": "endpoint-a", "fixture": ENDPOINT_A},
         "endpoint_b_binding": {"role": "endpoint-b", "fixture": ENDPOINT_B},
@@ -1760,7 +1805,7 @@ fn measurement_artifact() -> Result<Value, Box<dyn Error>> {
     Ok(json!({
         "schema": "bempic-reference-v0.1-conformance-tranche-3-measurements",
         "specification_commit": SPECIFICATION_COMMIT,
-        "codec_status": "implementation-local-private-use-nonconformant",
+        "codec_status": "public-experimental-not-approved-not-mandatory",
         "measurement_scope": {
             "endpoint_a_binding": {"role": "endpoint-a", "fixture": ENDPOINT_A},
             "endpoint_b_binding": {"role": "endpoint-b", "fixture": ENDPOINT_B},

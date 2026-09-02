@@ -1,6 +1,7 @@
 //! Full-width v0.1 representation persistence and deterministic fault injection.
 
 use bempic_model::v01::{PreparedRepresentation, RepresentationDescriptor, RepresentationId};
+use bempic_sync::v01_compact::validate_representation_descriptor;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
@@ -119,8 +120,7 @@ impl RepresentationStore {
         descriptor: RepresentationDescriptor,
         fail_after: Option<DurableBoundary>,
     ) -> Result<Self, RepresentationStoreError> {
-        descriptor
-            .validate()
+        validate_representation_descriptor(&descriptor)
             .map_err(|_| RepresentationStoreError::InvalidDescriptor)?;
         crate::durable::create_dir_all(root.as_ref())?;
         let stem = descriptor.representation_id.to_string();
@@ -191,6 +191,8 @@ impl RepresentationStore {
         &mut self,
         descriptor: &RepresentationDescriptor,
     ) -> Result<bool, RepresentationStoreError> {
+        validate_representation_descriptor(descriptor)
+            .map_err(|_| RepresentationStoreError::InvalidDescriptor)?;
         if descriptor != &self.state.descriptor {
             return Err(RepresentationStoreError::IdentityConflict);
         }
@@ -567,12 +569,37 @@ mod tests {
             bytes,
             None,
             fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).unwrap(),
-            0xffff_0001,
+            0x0001_0000,
             1,
             Vec::new(),
             None,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn unsupported_tuple_is_rejected_before_directory_or_state_mutation() {
+        let root = tempdir().unwrap();
+        let valid = prepared(b"public tuple".to_vec());
+        let mut private = valid.descriptor.clone();
+        private.codec_id = 0xffff_0001;
+        private.codec_revision = 2;
+        let invalid_root = root.path().join("invalid-private");
+        assert!(matches!(
+            RepresentationStore::open(&invalid_root, private.clone()),
+            Err(RepresentationStoreError::InvalidDescriptor)
+        ));
+        assert!(!invalid_root.exists());
+
+        let valid_root = root.path().join("valid-public");
+        let mut store = RepresentationStore::open(&valid_root, valid.descriptor).unwrap();
+        assert!(matches!(
+            store.accept_descriptor(&private),
+            Err(RepresentationStoreError::InvalidDescriptor)
+        ));
+        assert!(!store.snapshot().descriptor_accepted);
+        assert!(!store.slots[0].exists());
+        assert!(!store.slots[1].exists());
     }
 
     fn opaque(bytes: &[u8], descriptor: &RepresentationDescriptor) -> bool {

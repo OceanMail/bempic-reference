@@ -1,36 +1,37 @@
-//! Private-use compact operation-codec candidate.
+//! Public experimental compact operation codec `0x00010000/1`.
 //!
-//! This codec is an allocation-ready experiment, not a registered BEMPIC
-//! profile. It losslessly aliases one exact profile capability value and, only
-//! with an exact caller-supplied durable checkpoint, that checkpoint's full
-//! `SUMMARY`. An alias never supplies or overrides a different full value.
+//! The tuple is allocated but remains experimental: it is not approved,
+//! mandatory, stable, or a production-security promise. It losslessly aliases
+//! one exact profile capability value and, only with an exact caller-supplied
+//! durable checkpoint, that checkpoint's full `SUMMARY`. An alias never
+//! supplies or overrides a different full value.
 
 use crate::v01::{
-    declared_max_encoded_size as legacy_declared_max, Capabilities, CodecPreference, Error,
-    Operation, OperationKind, ProtocolGeneration, Record, SecurityClass, Summary,
-    MAX_EXPERIMENTAL_RECORD_OCTETS,
+    declared_max_encoded_size as legacy_declared_max, negotiate, Capabilities, CodecPreference,
+    Error, FailureCode, NegotiatedProfile, Operation, OperationKind, ProtocolGeneration, Record,
+    SecurityClass, Summary, MAX_EXPERIMENTAL_RECORD_OCTETS,
 };
-use bempic_model::v01::SchemaFingerprint;
+use bempic_model::v01::{RepresentationDescriptor, SchemaFingerprint};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
-/// Implementation-local private-use codec ID. This is not a registry allocation.
-pub const PRIVATE_CODEC_ID: u32 = 0xffff_0001;
-/// Incompatible private candidate revision.
-pub const PRIVATE_CODEC_REVISION: u32 = 2;
-/// Explicit codec identity used by allocation-ready evidence generation.
+/// Allocated public experimental codec ID.
+pub const EXPERIMENTAL_CODEC_ID: u32 = 0x0001_0000;
+/// Allocated public experimental codec revision.
+pub const EXPERIMENTAL_CODEC_REVISION: u32 = 1;
+/// Public experimental codec identity.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CodecIdentity {
-    /// Registry or private-use codec identifier.
+    /// Registry codec identifier.
     pub id: u32,
-    /// Incompatible codec revision.
+    /// Codec revision.
     pub revision: u32,
 }
 
-/// Current implementation-local identity; it is not a registry allocation.
-pub const PRIVATE_CODEC_IDENTITY: CodecIdentity = CodecIdentity {
-    id: PRIVATE_CODEC_ID,
-    revision: PRIVATE_CODEC_REVISION,
+/// Exact public experimental identity implemented by this module.
+pub const EXPERIMENTAL_CODEC_IDENTITY: CodecIdentity = CodecIdentity {
+    id: EXPERIMENTAL_CODEC_ID,
+    revision: EXPERIMENTAL_CODEC_REVISION,
 };
 /// Maximum complete record accepted by the candidate decoder.
 pub const MAX_COMPACT_RECORD_OCTETS: usize = MAX_EXPERIMENTAL_RECORD_OCTETS;
@@ -76,13 +77,13 @@ pub struct MaximumSizeAnalysis {
 /// Exact single-tuple capability value assigned the static profile alias.
 #[must_use]
 pub fn profile_capabilities() -> Capabilities {
-    profile_capabilities_for(PRIVATE_CODEC_IDENTITY)
+    profile_capabilities_for(EXPERIMENTAL_CODEC_IDENTITY)
 }
 
-/// Exact aliased capability value for an explicitly supplied allocation.
+/// Construct the exact aliased capability value for an explicit identity.
 ///
-/// This helper does not allocate an ID. It lets a future specification-owned
-/// allocation regenerate vectors without source edits.
+/// Active encode/decode paths accept only [`EXPERIMENTAL_CODEC_IDENTITY`]. This
+/// constructor exists so rejection vectors can exercise other identities.
 #[must_use]
 pub fn profile_capabilities_for(identity: CodecIdentity) -> Capabilities {
     Capabilities {
@@ -101,10 +102,106 @@ pub fn profile_capabilities_for(identity: CodecIdentity) -> Capabilities {
     }
 }
 
+/// Validate the exact allocated public experimental tuple.
+pub fn validate_identity(identity: CodecIdentity) -> Result<(), Error> {
+    if identity.id == 0 || identity.id == u32::MAX {
+        return Err(Error::UnsupportedCodec("reserved codec ID"));
+    }
+    if identity.id >= 0x8000_0000 {
+        return Err(Error::UnsupportedCodec("private-use codec ID"));
+    }
+    if identity.revision == 0 {
+        return Err(Error::UnsupportedCodec("codec revision zero"));
+    }
+    if identity.id != EXPERIMENTAL_CODEC_ID {
+        return Err(Error::UnsupportedCodec("unknown codec ID"));
+    }
+    if identity.revision != EXPERIMENTAL_CODEC_REVISION {
+        return Err(Error::UnsupportedCodec("unsupported codec revision"));
+    }
+    Ok(())
+}
+
+/// Validate one representation descriptor before allocation or persistence.
+pub fn validate_representation_descriptor(
+    descriptor: &RepresentationDescriptor,
+) -> Result<(), Error> {
+    descriptor
+        .validate()
+        .map_err(|_| Error::Malformed("representation descriptor"))?;
+    validate_identity(CodecIdentity {
+        id: descriptor.codec_id,
+        revision: descriptor.codec_revision,
+    })?;
+    if !descriptor.codec_parameters.is_empty() {
+        return Err(Error::UnsupportedCodec("non-empty codec parameters"));
+    }
+    if descriptor.schema_fingerprint != PROFILE_SCHEMA_FINGERPRINT {
+        return Err(Error::UnsupportedCodec("unsupported schema fingerprint"));
+    }
+    Ok(())
+}
+
+/// Validate an advertisement as public revision-1 interoperability evidence.
+pub fn validate_profile_capabilities(capabilities: &Capabilities) -> Result<(), Error> {
+    capabilities.validate()?;
+    if capabilities.schema_fingerprints != [PROFILE_SCHEMA_FINGERPRINT]
+        || capabilities.codec_preferences.len() != 1
+    {
+        return Err(Error::UnsupportedCodec("profile capability set"));
+    }
+    let preference = &capabilities.codec_preferences[0];
+    validate_identity(CodecIdentity {
+        id: preference.codec_id,
+        revision: preference.revision,
+    })?;
+    if preference.schema_fingerprint != PROFILE_SCHEMA_FINGERPRINT {
+        return Err(Error::UnsupportedCodec("mismatched codec schema"));
+    }
+    Ok(())
+}
+
+/// Validate a selected profile before it can enter a durable cache.
+pub fn validate_negotiated_profile(profile: &NegotiatedProfile) -> Result<(), Error> {
+    validate_identity(CodecIdentity {
+        id: profile.codec_id,
+        revision: profile.codec_revision,
+    })?;
+    if profile.schema_fingerprint != PROFILE_SCHEMA_FINGERPRINT {
+        return Err(Error::UnsupportedCodec("mismatched negotiated schema"));
+    }
+    Ok(())
+}
+
+/// Negotiate only after both advertisements satisfy the public profile.
+pub fn negotiate_profile(
+    local: &Capabilities,
+    remote: &Capabilities,
+) -> Result<NegotiatedProfile, FailureCode> {
+    validate_profile_capabilities(local).map_err(|_| FailureCode::UnsupportedCodec)?;
+    validate_profile_capabilities(remote).map_err(|_| FailureCode::UnsupportedCodec)?;
+    let profile = negotiate(local, remote)?;
+    validate_negotiated_profile(&profile).map_err(|_| FailureCode::UnsupportedCodec)?;
+    Ok(profile)
+}
+
+fn validate_record(record: &Record) -> Result<(), Error> {
+    match &record.operation {
+        Operation::Capabilities(capabilities) => validate_profile_capabilities(capabilities),
+        Operation::Offer(offer) => {
+            for entry in &offer.descriptors {
+                validate_representation_descriptor(&entry.descriptor)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Exact reachable maximum for one candidate operation kind.
 #[must_use]
 pub const fn declared_max_encoded_size(kind: OperationKind) -> usize {
-    let inherited_content = legacy_declared_max(kind) - LEGACY_ENVELOPE_OCTETS;
+    let inherited_content = profile_legacy_max(kind) - LEGACY_ENVELOPE_OCTETS;
     let body = 1 + inherited_content;
     1 + varint_size(body) + body
 }
@@ -112,7 +209,7 @@ pub const fn declared_max_encoded_size(kind: OperationKind) -> usize {
 /// Closed proof terms for one candidate operation maximum.
 #[must_use]
 pub const fn maximum_size_analysis(kind: OperationKind) -> MaximumSizeAnalysis {
-    let inherited_content_octets = legacy_declared_max(kind) - LEGACY_ENVELOPE_OCTETS;
+    let inherited_content_octets = profile_legacy_max(kind) - LEGACY_ENVELOPE_OCTETS;
     let body = 1 + inherited_content_octets;
     MaximumSizeAnalysis {
         kind,
@@ -123,9 +220,20 @@ pub const fn maximum_size_analysis(kind: OperationKind) -> MaximumSizeAnalysis {
     }
 }
 
+const fn profile_legacy_max(kind: OperationKind) -> usize {
+    match kind {
+        // One supported schema and tuple replace the generic maxima of sixteen
+        // schemas and sixteen codec preferences: 15 * 32 + 15 * 40 octets.
+        OperationKind::Capabilities => legacy_declared_max(kind) - 1_080,
+        // Empty canonical parameters replace 128 generic 1,024-octet blocks.
+        OperationKind::Offer => legacy_declared_max(kind) - 131_072,
+        _ => legacy_declared_max(kind),
+    }
+}
+
 /// Exact encoded size without trial serialization.
 pub fn exact_encoded_size(record: &Record, context: Context<'_>) -> Result<usize, Error> {
-    exact_encoded_size_for(record, context, PRIVATE_CODEC_IDENTITY)
+    exact_encoded_size_for(record, context, EXPERIMENTAL_CODEC_IDENTITY)
 }
 
 /// Exact encoded size for an explicitly supplied codec identity.
@@ -134,6 +242,8 @@ pub fn exact_encoded_size_for(
     context: Context<'_>,
     identity: CodecIdentity,
 ) -> Result<usize, Error> {
+    validate_identity(identity)?;
+    validate_record(record)?;
     let body_size = exact_body_size(record, context, identity)?;
     let size = 1 + varint_size(body_size) + body_size;
     if size > MAX_COMPACT_RECORD_OCTETS {
@@ -145,7 +255,7 @@ pub fn exact_encoded_size_for(
 
 /// Encode one deterministic complete candidate record.
 pub fn encode(record: &Record, context: Context<'_>) -> Result<Vec<u8>, Error> {
-    encode_for(record, context, PRIVATE_CODEC_IDENTITY)
+    encode_for(record, context, EXPERIMENTAL_CODEC_IDENTITY)
 }
 
 /// Encode for an explicitly supplied identity without assigning that identity.
@@ -154,6 +264,8 @@ pub fn encode_for(
     context: Context<'_>,
     identity: CodecIdentity,
 ) -> Result<Vec<u8>, Error> {
+    validate_identity(identity)?;
+    validate_record(record)?;
     let body_size = exact_body_size(record, context, identity)?;
     let size = 1 + varint_size(body_size) + body_size;
     if size > MAX_COMPACT_RECORD_OCTETS {
@@ -191,7 +303,12 @@ pub fn decode(
     supported_extensions: &BTreeSet<u32>,
     context: Context<'_>,
 ) -> Result<Record, Error> {
-    decode_for(bytes, supported_extensions, context, PRIVATE_CODEC_IDENTITY)
+    decode_for(
+        bytes,
+        supported_extensions,
+        context,
+        EXPERIMENTAL_CODEC_IDENTITY,
+    )
 }
 
 /// Strictly decode using the explicitly selected profile identity.
@@ -201,6 +318,7 @@ pub fn decode_for(
     context: Context<'_>,
     identity: CodecIdentity,
 ) -> Result<Record, Error> {
+    validate_identity(identity)?;
     if bytes.len() < 3 {
         return Err(Error::Truncated);
     }
@@ -270,6 +388,7 @@ pub fn decode_for(
         }
         (_, GENERIC_FORM) => {
             let record = decode_generic(tag, &bytes[position..], supported_extensions)?;
+            validate_record(&record)?;
             if record.extensions.is_empty()
                 && matches!(
                     &record.operation,
@@ -447,10 +566,23 @@ fn take_array<const N: usize>(bytes: &[u8], position: &mut usize) -> Result<[u8;
 mod tests {
     use super::*;
     use crate::v01::{collection_checkpoint, Data, Extension};
-    use bempic_model::v01::RepresentationId;
+    use bempic_model::v01::{
+        fingerprint_from_hex, PreparedRepresentation, RepresentationId,
+        MESSAGE_SCHEMA_FINGERPRINT_HEX,
+    };
 
     fn summary() -> Summary {
         collection_checkpoint([0x41; 32], 100, &[]).unwrap()
+    }
+
+    fn generic_bytes(record: &Record) -> Vec<u8> {
+        let legacy = record.encode().unwrap();
+        let body_size = 1 + legacy.len() - LEGACY_ENVELOPE_OCTETS;
+        let mut output = vec![HEADER_PREFIX | operation_tag(&record.operation)];
+        put_varint(&mut output, body_size as u64);
+        output.push(GENERIC_FORM);
+        output.extend_from_slice(&legacy[LEGACY_ENVELOPE_OCTETS..]);
+        output
     }
 
     #[test]
@@ -506,11 +638,8 @@ mod tests {
     }
 
     #[test]
-    fn explicit_identity_regenerates_profile_alias_without_allocating_an_id() {
-        let identity = CodecIdentity {
-            id: 0x8000_0042,
-            revision: 9,
-        };
+    fn public_identity_is_exact_and_private_identity_is_rejected() {
+        let identity = EXPERIMENTAL_CODEC_IDENTITY;
         let record = Record {
             operation: Operation::Capabilities(profile_capabilities_for(identity)),
             extensions: Vec::new(),
@@ -521,7 +650,153 @@ mod tests {
             decode_for(&bytes, &BTreeSet::new(), Context::default(), identity).unwrap(),
             record
         );
-        assert_ne!(identity, PRIVATE_CODEC_IDENTITY);
+        let private = CodecIdentity {
+            id: 0xffff_0001,
+            revision: 2,
+        };
+        assert_eq!(
+            encode_for(&record, Context::default(), private),
+            Err(Error::UnsupportedCodec("private-use codec ID"))
+        );
+    }
+
+    #[test]
+    fn reserved_private_zero_unknown_and_mismatched_tuples_fail_closed() {
+        let cases = [
+            (
+                CodecIdentity { id: 0, revision: 1 },
+                Error::UnsupportedCodec("reserved codec ID"),
+            ),
+            (
+                CodecIdentity {
+                    id: u32::MAX,
+                    revision: 1,
+                },
+                Error::UnsupportedCodec("reserved codec ID"),
+            ),
+            (
+                CodecIdentity {
+                    id: 0xffff_0001,
+                    revision: 2,
+                },
+                Error::UnsupportedCodec("private-use codec ID"),
+            ),
+            (
+                CodecIdentity {
+                    id: EXPERIMENTAL_CODEC_ID,
+                    revision: 0,
+                },
+                Error::UnsupportedCodec("codec revision zero"),
+            ),
+            (
+                CodecIdentity {
+                    id: EXPERIMENTAL_CODEC_ID + 1,
+                    revision: 1,
+                },
+                Error::UnsupportedCodec("unknown codec ID"),
+            ),
+            (
+                CodecIdentity {
+                    id: EXPERIMENTAL_CODEC_ID,
+                    revision: EXPERIMENTAL_CODEC_REVISION + 1,
+                },
+                Error::UnsupportedCodec("unsupported codec revision"),
+            ),
+        ];
+        for (identity, expected) in cases {
+            assert_eq!(validate_identity(identity), Err(expected));
+        }
+    }
+
+    #[test]
+    fn negotiation_rejects_downgrade_mixed_private_and_unsupported_revision() {
+        let local = profile_capabilities();
+        assert!(negotiate_profile(&local, &local).is_ok());
+
+        for identity in [
+            CodecIdentity {
+                id: EXPERIMENTAL_CODEC_ID,
+                revision: 0,
+            },
+            CodecIdentity {
+                id: EXPERIMENTAL_CODEC_ID,
+                revision: 2,
+            },
+            CodecIdentity {
+                id: 0xffff_0001,
+                revision: 2,
+            },
+        ] {
+            let remote = profile_capabilities_for(identity);
+            assert_eq!(
+                negotiate_profile(&local, &remote),
+                Err(FailureCode::UnsupportedCodec)
+            );
+        }
+
+        let mut mixed = local.clone();
+        mixed.codec_preferences.push(CodecPreference {
+            codec_id: 0xffff_0001,
+            revision: 2,
+            schema_fingerprint: PROFILE_SCHEMA_FINGERPRINT,
+        });
+        assert_eq!(
+            negotiate_profile(&local, &mixed),
+            Err(FailureCode::UnsupportedCodec)
+        );
+    }
+
+    #[test]
+    fn generic_decode_rejects_invalid_capabilities_before_returning_a_record() {
+        let private = Record {
+            operation: Operation::Capabilities(profile_capabilities_for(CodecIdentity {
+                id: 0xffff_0001,
+                revision: 2,
+            })),
+            extensions: Vec::new(),
+        };
+        assert_eq!(
+            decode(
+                &generic_bytes(&private),
+                &BTreeSet::new(),
+                Context::default()
+            ),
+            Err(Error::UnsupportedCodec("private-use codec ID"))
+        );
+    }
+
+    #[test]
+    fn descriptor_validation_accepts_only_public_opaque_empty_parameter_profile() {
+        let valid = PreparedRepresentation::prepare(
+            b"opaque".to_vec(),
+            None,
+            PROFILE_SCHEMA_FINGERPRINT,
+            EXPERIMENTAL_CODEC_ID,
+            EXPERIMENTAL_CODEC_REVISION,
+            Vec::new(),
+            None,
+        )
+        .unwrap();
+        assert!(validate_representation_descriptor(&valid.descriptor).is_ok());
+
+        let mut private = valid.descriptor.clone();
+        private.codec_id = 0xffff_0001;
+        assert_eq!(
+            validate_representation_descriptor(&private),
+            Err(Error::UnsupportedCodec("private-use codec ID"))
+        );
+        let mut parameters = valid.descriptor.clone();
+        parameters.codec_parameters.push(0);
+        assert_eq!(
+            validate_representation_descriptor(&parameters),
+            Err(Error::UnsupportedCodec("non-empty codec parameters"))
+        );
+        let mut manifest = valid.descriptor;
+        manifest.schema_fingerprint = fingerprint_from_hex(MESSAGE_SCHEMA_FINGERPRINT_HEX).unwrap();
+        assert_eq!(
+            validate_representation_descriptor(&manifest),
+            Err(Error::UnsupportedCodec("unsupported schema fingerprint"))
+        );
     }
 
     #[test]
@@ -599,7 +874,7 @@ mod tests {
             assert!(analysis.maximum_encoded_octets <= MAX_COMPACT_RECORD_OCTETS);
             assert_eq!(
                 analysis.inherited_content_octets + LEGACY_ENVELOPE_OCTETS,
-                legacy_declared_max(kind)
+                profile_legacy_max(kind)
             );
         }
     }

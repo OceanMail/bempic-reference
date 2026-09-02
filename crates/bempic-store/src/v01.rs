@@ -13,6 +13,7 @@ use bempic_sync::v01::{
     collection_checkpoint, CollectionEntry, Cursor, Failure, FailureCode, NegotiatedProfile, Offer,
     OfferMode, Operation, Record, Summary,
 };
+use bempic_sync::v01_compact::{validate_negotiated_profile, validate_representation_descriptor};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write as _;
@@ -131,6 +132,7 @@ impl ProtocolStore {
         expires_at: u64,
         profile: NegotiatedProfile,
     ) -> Result<(), StoreError> {
+        validate_negotiated_profile(&profile).map_err(|_| StoreError::UnsupportedCodec)?;
         self.state.capability_cache = Some(CapabilityCache {
             peer_profile_id,
             expires_at,
@@ -214,6 +216,10 @@ impl ProtocolStore {
         offer
             .validate()
             .map_err(|_| StoreError::CollectionConflict)?;
+        for entry in &offer.descriptors {
+            validate_representation_descriptor(&entry.descriptor)
+                .map_err(|_| StoreError::UnsupportedCodec)?;
+        }
         let collection = self
             .collection_mut(offer.collection_id)
             .ok_or(StoreError::UnknownCollection)?;
@@ -501,6 +507,9 @@ pub enum StoreError {
     /// An object ID was already bound to different immutable semantics.
     #[error("object ID conflicts with its durable immutable semantics binding")]
     ImmutableObjectConflict,
+    /// Codec tuple, parameters, or schema are not supported by this profile.
+    #[error("unsupported codec profile")]
+    UnsupportedCodec,
 }
 
 #[cfg(test)]
@@ -520,7 +529,7 @@ mod tests {
             vec![byte; usize::from(byte) + 1],
             None,
             fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).unwrap(),
-            0xffff_0001,
+            0x0001_0000,
             1,
             Vec::new(),
             None,
@@ -537,7 +546,7 @@ mod tests {
     fn profile() -> NegotiatedProfile {
         let schema = entry(1).descriptor.schema_fingerprint;
         let preference = CodecPreference {
-            codec_id: 0xffff_0001,
+            codec_id: 0x0001_0000,
             revision: 1,
             schema_fingerprint: schema,
         };
@@ -569,6 +578,42 @@ mod tests {
         assert_eq!(reopened.cached_negotiation(peer, 100), Some(&profile()));
         assert!(reopened.cached_negotiation(peer, 101).is_none());
         assert!(reopened.has_receipt(receipt));
+    }
+
+    #[test]
+    fn stale_cache_renegotiates_and_invalid_tuples_never_replace_durable_profile() {
+        let root = tempdir().unwrap();
+        let peer = [0x44; 32];
+        let mut store = ProtocolStore::open(root.path()).unwrap();
+        store.persist_negotiation(peer, 10, profile()).unwrap();
+        assert!(store.cached_negotiation(peer, 11).is_none());
+
+        let refreshed = profile();
+        store
+            .persist_negotiation(peer, 20, refreshed.clone())
+            .unwrap();
+        for (codec_id, codec_revision) in [
+            (0, 1),
+            (u32::MAX, 1),
+            (0xffff_0001, 2),
+            (0x0001_0000, 0),
+            (0x0001_0001, 1),
+            (0x0001_0000, 2),
+        ] {
+            let mut invalid = refreshed.clone();
+            invalid.codec_id = codec_id;
+            invalid.codec_revision = codec_revision;
+            assert!(matches!(
+                store.persist_negotiation(peer, 30, invalid),
+                Err(StoreError::UnsupportedCodec)
+            ));
+            assert_eq!(store.cached_negotiation(peer, 20), Some(&refreshed));
+        }
+
+        drop(store);
+        let reopened = ProtocolStore::open(root.path()).unwrap();
+        assert_eq!(reopened.cached_negotiation(peer, 20), Some(&refreshed));
+        assert!(reopened.cached_negotiation(peer, 21).is_none());
     }
 
     #[test]
@@ -665,6 +710,37 @@ mod tests {
         reopened.finish_reconciliation([7; 32]).unwrap();
         assert_eq!(reopened.checkpoint([7; 32]), Some(target));
         assert_eq!(reopened.cursor([7; 32]), None);
+    }
+
+    #[test]
+    fn invalid_offer_tuple_is_rejected_before_cursor_or_page_mutation() {
+        let root = tempdir().unwrap();
+        let entries = vec![entry(1)];
+        let empty = collection_checkpoint([0x71; 32], 0, &[]).unwrap();
+        let target = collection_checkpoint([0x71; 32], 1, &entries).unwrap();
+        let Reconciliation::Page(mut offer) =
+            reconcile(target, &[], &entries, None, None, 1, 4_096).unwrap()
+        else {
+            panic!("expected page")
+        };
+        offer.descriptors[0].descriptor.codec_id = 0xffff_0001;
+        offer.descriptors[0].descriptor.codec_revision = 2;
+
+        let mut store = ProtocolStore::open(root.path()).unwrap();
+        store.initialize_collection(empty).unwrap();
+        store
+            .begin_reconciliation(empty, target, OfferMode::Full)
+            .unwrap();
+        assert!(matches!(
+            store.commit_offer_page(&offer),
+            Err(StoreError::UnsupportedCodec)
+        ));
+        assert_eq!(store.cursor([0x71; 32]), None);
+        drop(store);
+
+        let reopened = ProtocolStore::open(root.path()).unwrap();
+        assert_eq!(reopened.cursor([0x71; 32]), None);
+        assert_eq!(reopened.checkpoint([0x71; 32]), Some(empty));
     }
 
     #[test]

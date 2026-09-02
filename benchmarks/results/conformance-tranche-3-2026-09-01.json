@@ -6,7 +6,7 @@
     "pass": 12,
     "total": 15
   },
-  "codec_status": "implementation-local-private-use-nonconformant",
+  "codec_status": "public-experimental-not-approved-not-mandatory",
   "compact_no_change_100_messages": {
     "b1_comparison_cold_octets": 292,
     "b1_comparison_warm_octets": 88,
@@ -51,7 +51,7 @@
     "useful_committed_bytes": "2048"
   },
   "schema": "bempic-reference-v0.1-conformance-tranche-3-measurements",
-  "specification_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f",
+  "specification_commit": "7d29453c87b6f08f1abf6214c4ca64dd82030e99",
   "v08_pair_coverage_complete": true,
   "v08_rows": 24,
   "v12_budget_cases": 42,

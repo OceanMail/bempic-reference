@@ -2009,6 +2009,9 @@ pub enum Error {
     /// Unknown critical extension prevented mutation.
     #[error("unsupported critical extension {0}")]
     UnsupportedCriticalExtension(u32),
+    /// Codec registry identity or schema is unsupported by the selected profile.
+    #[error("unsupported codec: {0}")]
+    UnsupportedCodec(&'static str),
     /// A core or local limit was exceeded.
     #[error("{0} exceeds a limit")]
     LimitExceeded(&'static str),
@@ -2038,7 +2041,7 @@ mod tests {
             vec![seed; usize::from(seed) + 1],
             None,
             fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).unwrap(),
-            0xffff_0001,
+            0x0001_0000,
             1,
             Vec::new(),
             None,

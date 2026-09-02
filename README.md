@@ -8,8 +8,9 @@ fixtures, and cross-language vectors.
 > **Conformance status:** not v0.1.0 conformant and not release-ready. The
 > requirement-by-requirement evidence under `conformance/` is authoritative.
 > The implementation targets specification commit
-> `10fc1ddca0b16c974d29a24b6ff2bef189663a1f`, but codec allocation, B2F,
-> independent-implementation, release, and external M4P-review gates remain
+> `7d29453c87b6f08f1abf6214c4ca64dd82030e99`. Public codec revision 1
+> defines no canonical message-manifest instance encoding; B2F, M4P,
+> independent-implementation, security-profile, and release gates also remain
 > open.
 
 > **No stable wire format:** every encoding in v0.1.0 is an experimental
@@ -17,11 +18,11 @@ fixtures, and cross-language vectors.
 > schema fingerprints may change incompatibly before a wire generation is
 > selected by the specification project.
 
-The private-use compact revision-2 evidence candidate now measures the
-prescribed 100-message no-change cases at 35 B warm and 75 B cold, versus the B1
-comparison's 88/292 B. It remains explicitly nonconformant and unusable as
-public interoperability evidence until the specification repository reviews
-the state-bound alias and performs an experimental allocation. See
+The allocated public experimental compact tuple `0x00010000/1` measures the
+prescribed 100-message no-change operation exchange at 35 B warm and 75 B cold,
+versus B1's 88/292 B. It is not approved, mandatory, stable, production-secure,
+or sufficient for conformance; V01/V02 remain blocked because the allocation
+defines no canonical manifest-instance encoding. See
 [`docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md).
 
 ## Architectural boundary
@@ -67,6 +68,7 @@ cargo test --workspace --all-features
 cargo run -p bempic-conformance --release
 cargo run -p bempic-conformance --release -- tranche2-measurements
 cargo run -p bempic-conformance --release -- compact-codec-evidence
+cargo run -p bempic-conformance --release -- write-compact-codec-evidence
 cargo run -p bempic-conformance --release -- verify-compact-codec-evidence
 cargo run -p bempic-conformance --release -- verify-tranche3-evidence
 cargo run -p bempic-cli -- demo

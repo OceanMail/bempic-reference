@@ -306,7 +306,7 @@ mod tests {
 }
 
 /// Normative-generation semantic types derived from specification commit
-/// `10fc1ddca0b16c974d29a24b6ff2bef189663a1f`.
+/// `7d29453c87b6f08f1abf6214c4ca64dd82030e99`.
 ///
 /// The root-level types above remain solely for the transitional Python-oracle
 /// compatibility profile. New conformance work uses this module's full-width
@@ -320,7 +320,7 @@ pub mod v01 {
     use unicode_normalization::UnicodeNormalization as _;
 
     /// Specification commit implemented by these semantic definitions.
-    pub const SPECIFICATION_COMMIT: &str = "10fc1ddca0b16c974d29a24b6ff2bef189663a1f";
+    pub const SPECIFICATION_COMMIT: &str = "7d29453c87b6f08f1abf6214c4ca64dd82030e99";
     /// Registered core-operation schema fingerprint, revision 2.
     pub const CORE_SCHEMA_FINGERPRINT_HEX: &str =
         "c4a686e7e9c6a40a5f187259a376b26cfc1d355179fd9fff487e105aeeac7302";
@@ -988,7 +988,7 @@ pub mod v01 {
                 bytes,
                 None,
                 fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).unwrap(),
-                0xffff_0001,
+                0x0001_0000,
                 1,
                 Vec::new(),
                 None,

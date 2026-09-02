@@ -1,15 +1,13 @@
 # Private compact-candidate vectors
 
-These vectors exercise implementation-local private-use codec `0xffff0001/2`.
-They are allocation-ready evidence, not a registered BEMPIC vector bundle,
-public interoperability evidence, or a compatibility promise. The authoritative
-profile is [`../../docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md`](../../docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md).
+These frozen vectors exercise the former implementation-local private-use codec
+`0xffff0001/2`. They are historical provenance only: not active evidence, not a
+registered BEMPIC vector bundle, not public interoperability evidence, and not
+a compatibility promise. Their contemporary profile and results are preserved
+in [`../../docs/work-reports/2026-09-01-v0.1-compact-codec-evidence.md`](../../docs/work-reports/2026-09-01-v0.1-compact-codec-evidence.md).
 
-`vectors.json` contains exact valid, boundary, malformed, truncated,
-noncanonical, missing-context, and symbolic one-past cases plus reaching-witness
-digests for all seven operations. `scripts/verify_conformance.py` independently
-recomputes the prescribed V01 checkpoint, decodes every compact form, checks the
-failure outcomes and maximum formulas, and verifies the linked artifact digest.
+`vectors.json` is retained byte-for-byte for provenance and fixture comparison.
+The active verifier and conformance report exclude it.
 
-The older `v0.1-experimental/` B1 material remains only for comparison. The two
-candidate revisions are intentionally incompatible.
+The active `v0.1-public-experimental-codec/` pack uses `0x00010000/1`. The
+private and public tuples are intentionally incompatible.

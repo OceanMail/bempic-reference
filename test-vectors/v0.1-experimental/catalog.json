@@ -11,13 +11,13 @@
     {
       "id": "V01",
       "name": "empty-and-equal-collections",
-      "result": "Private codec 0xffff0001/2 passes 35/75-octet gates; specification allocation remains unresolved.",
+      "result": "Public experimental codec 0x00010000/1 passes 35/75-octet operation gates; revision 1 defines no canonical message-manifest instance encoding.",
       "status": "blocked"
     },
     {
       "id": "V02",
       "name": "known-checkpoint-incremental-delta",
-      "result": "Semantic/state result passes; byte-exact public evidence awaits codec allocation.",
+      "result": "Public operation and opaque-representation evidence passes; byte-exact manifest representation evidence awaits a normative manifest codec decision.",
       "status": "blocked"
     },
     {
@@ -100,13 +100,14 @@
     }
   ],
   "implementation_status": "blocked-not-conformant",
-  "normative_source_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f",
+  "normative_source_commit": "7d29453c87b6f08f1abf6214c4ca64dd82030e99",
   "remaining_release_blockers": [
-    "codec-allocation",
-    "b2f-legal-oracle",
+    "manifest-instance-codec",
+    "b2f-qualified-oracle",
     "m4p-external-review",
     "independent-implementation",
+    "security-profile",
     "release-candidate-gates"
   ],
-  "wire_profile": "implementation-local-private-use-nonconformant"
+  "wire_profile": "public-experimental-not-approved-not-mandatory"
 }

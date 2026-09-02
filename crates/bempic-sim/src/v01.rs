@@ -984,7 +984,7 @@ mod tests {
             bytes,
             None,
             fingerprint_from_hex(OPAQUE_SCHEMA_FINGERPRINT_HEX).unwrap(),
-            0xffff_0001,
+            0x0001_0000,
             1,
             Vec::new(),
             None,

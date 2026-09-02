@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "7fa71ac6cdc8e37fea6d23389f12a562f239da5d5f5c5c1e8a41e198e26e372b",
+  "bundle_digest": "f510801864374337908b2869c1db811781d0c007a5ed7ece5dce9e639062e9ec",
   "bundle_format_version": "0.1",
   "catalog_counts": {
     "blocked": 3,
@@ -9,12 +9,16 @@
     "total": 15
   },
   "codec": {
+    "approved": false,
     "canonical_parameters_hex": "",
     "declared_max_operation_octets": 1048576,
-    "id": 4294901761,
-    "registry_allocation": null,
-    "revision": 2,
-    "status": "implementation-local-private-use-nonconformant"
+    "id": 65536,
+    "mandatory": false,
+    "production_security_promise": false,
+    "registry_allocation": "experimental",
+    "revision": 1,
+    "stable_wire_promise": false,
+    "status": "public-experimental-not-approved-not-mandatory"
   },
   "endpoint_a_binding": {
     "fixture": "fixture-node-a",
@@ -27,9 +31,9 @@
   "extensions": [],
   "files": [
     {
-      "length": 3788,
+      "length": 3934,
       "path": "catalog.json",
-      "sha256": "aae39396a954182b94208ab6149d7cb634dcd62494b499c3b1a40008d128fedf"
+      "sha256": "31ca691355ede09ba14fdd7d8d01a9d2d76c981f9add63872a62a378d81449d7"
     },
     {
       "length": 2390,
@@ -52,9 +56,9 @@
       "sha256": "f88231b535aa1d1f5a580d6ddcc5689f5cbc34e9028f9e1e6c9a631201652443"
     },
     {
-      "length": 6643,
+      "length": 6645,
       "path": "semantic-fixtures/message-manifest-full-width.json",
-      "sha256": "568796cdd615b8ea5975a373b4f276c2e0e2190a815c635c521fcaf915b8e542"
+      "sha256": "58cdcad32b10e53bf06ca4c45e1efe43078eb948c18ebfc43bfa87ce6b5f5d33"
     },
     {
       "length": 771,
@@ -62,9 +66,9 @@
       "sha256": "44d5fe151a0addb65ac53c1074a5a112b19b97b1e7b8ef775a32f3a1dfd2275d"
     },
     {
-      "length": 90826,
+      "length": 91559,
       "path": "tranche3-evidence.json",
-      "sha256": "119a49084c028be50c254fe175e980019808dc01593ede6868e0b2ac6ad6accf"
+      "sha256": "0610ae4d9f607aebbec3c5cdc8f5635d97da1d2c2bafcd5ccbac5abcaa1a8179"
     }
   ],
   "mandatory_catalog_status": "blocked-not-conformant",
@@ -87,5 +91,5 @@
     }
   ],
   "semantic_bytes_source": "tranche3-evidence.json#/semantic_accounting",
-  "specification_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f"
+  "specification_commit": "7d29453c87b6f08f1abf6214c4ca64dd82030e99"
 }

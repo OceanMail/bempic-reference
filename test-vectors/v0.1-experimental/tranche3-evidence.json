@@ -7,17 +7,14 @@
     "total": 15
   },
   "codec": {
-    "current_id": 4294901761,
-    "current_revision": 2,
+    "current_id": 65536,
+    "current_revision": 1,
     "encoded_profile_alias_length": 3,
-    "generator_accepts_explicit_id_revision": true,
-    "registry_allocation": null,
-    "status": "implementation-local-private-use-nonconformant",
-    "test_only_explicit_identity": {
-      "claimed_allocation": false,
-      "id": 2147483714,
-      "revision": 9
-    }
+    "generator_accepts_exact_allocated_id_revision": true,
+    "production_security_promise": false,
+    "registry_allocation": "experimental",
+    "stable_wire_promise": false,
+    "status": "public-experimental-not-approved-not-mandatory"
   },
   "conformance_claim": false,
   "immutable_object_semantics": {
@@ -33,10 +30,11 @@
   },
   "oceanmail_evidence_commit": "cc55c1b7d5a03aa2e5cc8cd617f9d1bb7b6a3600",
   "remaining_blockers": [
-    "codec-allocation",
-    "b2f-legal-oracle",
+    "manifest-instance-codec",
+    "b2f-qualified-oracle",
     "m4p-external-review",
     "independent-implementation",
+    "security-profile",
     "release-candidate-gates"
   ],
   "schema": "bempic-reference-v0.1-conformance-tranche-3-evidence",
@@ -69,21 +67,23 @@
       {
         "destination_endpoint_role": "endpoint-b",
         "direction": "send",
+        "identity_derivation": "semantic-fixture-sha256-not-codec-representation",
         "representation_descriptor_contribution": "0",
-        "representation_id": "0cdb05ea3e448f6acbec2afa3dc5cee06cdf7cc56f5069f6ed71cc2aea59764b",
+        "representation_id": "58cdcad32b10e53bf06ca4c45e1efe43078eb948c18ebfc43bfa87ce6b5f5d33",
         "schema_fingerprint": "0ac001efba42837aade054401d9d307d16ad4715feac288fcb3d1711e4b961da",
         "selection_event": "manifest-accepted-selection-1",
-        "semantic_fixture_octets": "6643",
+        "semantic_fixture_octets": "6645",
         "semantic_fixture_path": "semantic-fixtures/message-manifest-full-width.json",
-        "semantic_fixture_sha256": "568796cdd615b8ea5975a373b4f276c2e0e2190a815c635c521fcaf915b8e542",
+        "semantic_fixture_sha256": "58cdcad32b10e53bf06ca4c45e1efe43078eb948c18ebfc43bfa87ce6b5f5d33",
         "semantic_octets": "140",
         "source_endpoint_role": "endpoint-a"
       },
       {
         "destination_endpoint_role": "endpoint-b",
         "direction": "send",
+        "identity_derivation": "public-codec-representation-id",
         "representation_descriptor_contribution": "0",
-        "representation_id": "0f8222b25d9312518effca38e048e2ad2945d5b23490520660550476b0e0ac6c",
+        "representation_id": "11910e74d838279d2174fa2c0bad5d961e8e9a0fbbf4c479767226c7f4d92dc2",
         "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797",
         "selection_event": "body-accepted-selection-2",
         "semantic_fixture_octets": "771",
@@ -95,8 +95,9 @@
       {
         "destination_endpoint_role": "endpoint-a",
         "direction": "receive",
+        "identity_derivation": "public-codec-representation-id",
         "representation_descriptor_contribution": "0",
-        "representation_id": "2d2537c1d23b561b2a9f98707204b60c84db3813026cdcb97076421d87bcb894",
+        "representation_id": "48b62cdbf7f7b21d7bff5f0a2a614e832affa6d18344669b96bbf4b4ab48377f",
         "schema_fingerprint": "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797",
         "selection_event": "response-accepted-selection-3",
         "semantic_fixture_octets": "113",
@@ -107,11 +108,11 @@
       }
     ]
   },
-  "specification_commit": "10fc1ddca0b16c974d29a24b6ff2bef189663a1f",
+  "specification_commit": "7d29453c87b6f08f1abf6214c4ca64dd82030e99",
   "vectors": {
     "V01": {
       "blocked_by": [
-        "codec-allocation"
+        "manifest-instance-codec"
       ],
       "empty": {
         "payload_bytes": "0",
@@ -131,7 +132,7 @@
     },
     "V02": {
       "blocked_by": [
-        "codec-allocation"
+        "manifest-instance-codec"
       ],
       "case": "known-checkpoint-100-plus-1",
       "mode": "delta",
@@ -274,7 +275,7 @@
       "attachment-metadata-unselected": {
         "encoded_length": "512",
         "metadata_present": true,
-        "representation_id": "d6295fb859cb7e174f306b7ae9f75a622b20d877b9551ed011052e5cf925855c",
+        "representation_id": "7ebbd3f0dfcb8056f4871e25762daa42f4d114b2acc28032b2625c1dee2e198d",
         "selected": false,
         "unselected_representation_payload_bytes": "0"
       },
@@ -285,17 +286,17 @@
             "declared_encoded_length": "24",
             "encoded_length": "24",
             "exact_reconstruction": true,
-            "representation_id": "8c6a0a3efad49cf29174950acc32f1a70864bfdf573c512dfe40c5ff2b9a2b65"
+            "representation_id": "013ead9f4359105631acb4c7c9a690b04382fd303afffae65ee27462fac47387"
           },
           {
             "content_digest": "34eff3154477afb1a3ee6925c09340b2df092050cbe9ed82ffcb3ee9a13a8a8a",
             "declared_encoded_length": "9",
             "encoded_length": "9",
             "exact_reconstruction": true,
-            "representation_id": "1e75de08c81a3fef4257bbae47f23de57a5f076e5607aadcd321ab654c6e2b0e"
+            "representation_id": "e99b9d657faabb7652c22e27aa58192b8a0ee3882f66f9fede0d21ac25c92fc5"
           }
         ],
-        "selected_representation_id": "8c6a0a3efad49cf29174950acc32f1a70864bfdf573c512dfe40c5ff2b9a2b65",
+        "selected_representation_id": "013ead9f4359105631acb4c7c9a690b04382fd303afffae65ee27462fac47387",
         "selection_count": 1,
         "semantic_bytes_send": "24"
       },
@@ -308,14 +309,14 @@
         "declared_encoded_length": "4096",
         "encoded_length": "4096",
         "exact_reconstruction": true,
-        "representation_id": "6cb08482722c625de35488ba20b49c8a73bf9ec351964705c452e42a821a3c55"
+        "representation_id": "9eb46eda7d101d63475edb4861b3c8489b1e27d44c3384937c00c4c39eebde38"
       },
       "incompressible-selected": {
         "content_digest": "c8f5d0341d54d951a71b136e6e2afcb14d11ed8489a7ae126a8fee0df6ecf193",
         "declared_encoded_length": "4096",
         "encoded_length": "4096",
         "exact_reconstruction": true,
-        "representation_id": "005701b58a4027135d9239d72b2fe8543185fcf653ecaa1aeeb34b3029402e57"
+        "representation_id": "8609491d35a19304daf55d0f6313774aefa62b5e57a5a2ac6a2db2b7a70965e7"
       },
       "status": "pass"
     },
@@ -325,7 +326,7 @@
         "declared_encoded_length": "0",
         "encoded_length": "0",
         "exact_reconstruction": true,
-        "representation_id": "64bd613e6478fd96c5f9ced5ccb53182623c0d3a3effc2f591ecaea9f8a802d6"
+        "representation_id": "73becab908ad6c3bb12035e7c59bc48677ec6b31696fcc5fc8548994c039d36c"
       },
       "maximum-data-payload": {
         "octets": "1000000",
@@ -341,7 +342,7 @@
         "declared_encoded_length": "1",
         "encoded_length": "1",
         "exact_reconstruction": true,
-        "representation_id": "788f52472d5a8ecf40173e6ee424b84ba05cda093066d62e8f751520de87434a"
+        "representation_id": "e210e35d55db3de2fde73be882958747d95174de90d9b82404b8052be7caa9d7"
       },
       "one-past-representation": {
         "octets": "1073741825",
@@ -368,7 +369,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -395,7 +396,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -422,7 +423,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -449,7 +450,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "10",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -476,7 +477,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "10",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -503,7 +504,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -530,7 +531,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "100",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -557,7 +558,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -584,7 +585,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "100",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -611,7 +612,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "500",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -638,7 +639,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "500",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -665,7 +666,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "500",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -692,7 +693,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "900",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -719,7 +720,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "900",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -746,7 +747,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -773,7 +774,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -800,7 +801,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "0",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -827,7 +828,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -854,7 +855,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -881,7 +882,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -908,7 +909,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -935,7 +936,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -962,7 +963,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -989,7 +990,7 @@
           "encoded_length": "1000",
           "final_content_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
           "final_decode": true,
-          "final_representation_id": "656fbb2ebded655bcc29ee12ca256019e848c3a46b382478832940caf67bcff0",
+          "final_representation_id": "4a79ff99b9e78e533fa534c92747e9ac4599528fd65b32a1756958619a97bc66",
           "final_state": "committed",
           "first_resumed_offset": "1000",
           "fixture_digest": "a8af099bf2e878609558dbf69d8f88f4a31040a8cf84b549a0cfa912f12ffc3f",
@@ -1133,18 +1134,18 @@
           "domain": "total",
           "expected_emitted": false,
           "operation": "CAPABILITIES",
-          "operation_octets": "34362",
+          "operation_octets": "33282",
           "quote_error_bytes": "0",
           "relative_budget": -1,
           "result": "pass"
         },
         {
           "complete_operation_emitted": true,
-          "counter_after": "34362",
+          "counter_after": "33282",
           "domain": "total",
           "expected_emitted": true,
           "operation": "CAPABILITIES",
-          "operation_octets": "34362",
+          "operation_octets": "33282",
           "quote_error_bytes": "0",
           "relative_budget": 0,
           "result": "pass"
@@ -1155,18 +1156,18 @@
           "domain": "send",
           "expected_emitted": false,
           "operation": "CAPABILITIES",
-          "operation_octets": "34362",
+          "operation_octets": "33282",
           "quote_error_bytes": "0",
           "relative_budget": -1,
           "result": "pass"
         },
         {
           "complete_operation_emitted": true,
-          "counter_after": "34362",
+          "counter_after": "33282",
           "domain": "send",
           "expected_emitted": true,
           "operation": "CAPABILITIES",
-          "operation_octets": "34362",
+          "operation_octets": "33282",
           "quote_error_bytes": "0",
           "relative_budget": 0,
           "result": "pass"
@@ -1177,18 +1178,18 @@
           "domain": "receive",
           "expected_emitted": false,
           "operation": "CAPABILITIES",
-          "operation_octets": "34362",
+          "operation_octets": "33282",
           "quote_error_bytes": "0",
           "relative_budget": -1,
           "result": "pass"
         },
         {
           "complete_operation_emitted": true,
-          "counter_after": "34362",
+          "counter_after": "33282",
           "domain": "receive",
           "expected_emitted": true,
           "operation": "CAPABILITIES",
-          "operation_octets": "34362",
+          "operation_octets": "33282",
           "quote_error_bytes": "0",
           "relative_budget": 0,
           "result": "pass"
@@ -1265,18 +1266,18 @@
           "domain": "total",
           "expected_emitted": false,
           "operation": "OFFER",
-          "operation_octets": "186789",
+          "operation_octets": "55717",
           "quote_error_bytes": "0",
           "relative_budget": -1,
           "result": "pass"
         },
         {
           "complete_operation_emitted": true,
-          "counter_after": "186789",
+          "counter_after": "55717",
           "domain": "total",
           "expected_emitted": true,
           "operation": "OFFER",
-          "operation_octets": "186789",
+          "operation_octets": "55717",
           "quote_error_bytes": "0",
           "relative_budget": 0,
           "result": "pass"
@@ -1287,18 +1288,18 @@
           "domain": "send",
           "expected_emitted": false,
           "operation": "OFFER",
-          "operation_octets": "186789",
+          "operation_octets": "55717",
           "quote_error_bytes": "0",
           "relative_budget": -1,
           "result": "pass"
         },
         {
           "complete_operation_emitted": true,
-          "counter_after": "186789",
+          "counter_after": "55717",
           "domain": "send",
           "expected_emitted": true,
           "operation": "OFFER",
-          "operation_octets": "186789",
+          "operation_octets": "55717",
           "quote_error_bytes": "0",
           "relative_budget": 0,
           "result": "pass"
@@ -1309,18 +1310,18 @@
           "domain": "receive",
           "expected_emitted": false,
           "operation": "OFFER",
-          "operation_octets": "186789",
+          "operation_octets": "55717",
           "quote_error_bytes": "0",
           "relative_budget": -1,
           "result": "pass"
         },
         {
           "complete_operation_emitted": true,
-          "counter_after": "186789",
+          "counter_after": "55717",
           "domain": "receive",
           "expected_emitted": true,
           "operation": "OFFER",
-          "operation_octets": "186789",
+          "operation_octets": "55717",
           "quote_error_bytes": "0",
           "relative_budget": 0,
           "result": "pass"
@@ -1595,28 +1596,42 @@
     "V13": {
       "cases": {
         "compatible-tuple": {
-          "codec_id": 7,
+          "codec_id": 65536,
           "result": "pass"
-        },
-        "incompatible-codec": {
-          "failure": "UnsupportedCodec"
         },
         "incompatible-protocol": {
           "failure": "UnsupportedVersion"
         },
-        "incompatible-schema": {
-          "failure": "UnsupportedSchema"
+        "mismatched-schema": {
+          "failure": "UnsupportedCodec",
+          "mutation": false
+        },
+        "mixed-private-public-peer": {
+          "failure": "UnsupportedCodec",
+          "mutation": false
         },
         "preference-tie": {
           "result": "pass",
           "rule": "lowest-preference-sum-then-codec-revision-schema",
           "selected_codec_id": 7
         },
+        "private-use-codec": {
+          "failure": "UnsupportedCodec",
+          "mutation": false
+        },
+        "revision-zero-downgrade": {
+          "failure": "UnsupportedCodec",
+          "mutation": false
+        },
         "stale-cache-recovery": {
           "fresh_hit": true,
           "renegotiated": true,
           "stale_miss": true,
           "warm_hit": true
+        },
+        "unknown-codec": {
+          "failure": "UnsupportedCodec",
+          "mutation": false
         },
         "unknown-critical-extension": {
           "mutation": false,
@@ -1625,6 +1640,10 @@
         "unknown-optional-extension": {
           "mutation": false,
           "skipped": true
+        },
+        "unsupported-revision": {
+          "failure": "UnsupportedCodec",
+          "mutation": false
         }
       },
       "status": "pass"

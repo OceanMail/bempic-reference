@@ -15,12 +15,18 @@ ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_ROOT = ROOT / "test-vectors" / "v0.1-experimental"
 MANIFEST_PATH = BUNDLE_ROOT / "manifest.json"
 COMPACT_ARTIFACT_PATH = (
-    ROOT / "benchmarks" / "results" / "compact-codec-evidence-2026-09-01.json"
+    ROOT / "benchmarks" / "results" / "compact-codec-public-evidence-2026-09-02.json"
 )
-COMPACT_VECTOR_PATH = ROOT / "test-vectors" / "v0.1-compact-candidate" / "vectors.json"
-COMPACT_CODEC_ID = 0xFFFF0001
-COMPACT_CODEC_REVISION = 2
+COMPACT_VECTOR_PATH = (
+    ROOT / "test-vectors" / "v0.1-public-experimental-codec" / "vectors.json"
+)
+COMPACT_CODEC_ID = 0x00010000
+COMPACT_CODEC_REVISION = 1
 COMPACT_MAX_RECORD = 1_048_576
+SPECIFICATION_COMMIT = "7d29453c87b6f08f1abf6214c4ca64dd82030e99"
+COMPACT_PROFILE_SHA256 = (
+    "bc82364f7ac2f563bbdc0ea15f3d9b1f9127d6ac88376bf19a6dc642dc731127"
+)
 COMPACT_SCHEMA_FINGERPRINT = (
     "d8906a1cefbf89e4f29b4a0f636cfbfa1e9c6301e7e3a4fe213c090066f8e797"
 )
@@ -56,6 +62,19 @@ def representation_id(fixture: dict[str, Any]) -> str:
         )
     )
     return hashlib.sha256(material).hexdigest()
+
+
+def public_tuple_supported(vector: dict[str, Any]) -> bool:
+    codec_id = vector["codec_id"]
+    revision = vector["revision"]
+    if codec_id in (0, 0xFFFFFFFF) or 0x80000000 <= codec_id <= 0xFFFFFFFE:
+        return False
+    return (
+        codec_id == COMPACT_CODEC_ID
+        and revision == COMPACT_CODEC_REVISION
+        and vector["schema_fingerprint"] == COMPACT_SCHEMA_FINGERPRINT
+        and vector["parameters_hex"] == ""
+    )
 
 
 class Reader:
@@ -289,33 +308,36 @@ def verify_segments(segments: list[dict[str, Any]], total: int) -> None:
 def verify_compact_artifact() -> dict[str, Any]:
     artifact = strict_json(COMPACT_ARTIFACT_PATH.read_text(encoding="utf-8"))
     vector_pack = strict_json(COMPACT_VECTOR_PATH.read_text(encoding="utf-8"))
-    if artifact["specification_commit"] != "40da35bd150290d039a185fb95388422ede5f1d1":
+    if artifact["specification_commit"] != SPECIFICATION_COMMIT:
         raise VerificationError("compact evidence targets the wrong specification")
     if artifact["codec"] != {
+        "approved": False,
         "canonical_parameters_hex": "",
         "id": COMPACT_CODEC_ID,
+        "mandatory": False,
+        "normative_profile_sha256": COMPACT_PROFILE_SHA256,
         "profile": "docs/EXPERIMENTAL-COMPACT-CODEC-v0.1.md",
-        "profile_sha256": "0633ed81272a89d085ceb8ae01aef82ac1749a9babe2fac9b59d0d1f3529fce8",
-        "registry_allocation": None,
+        "production_security_promise": False,
+        "registry_allocation": "experimental",
         "revision": COMPACT_CODEC_REVISION,
-        "status": "implementation-local-private-use-nonconformant",
+        "stable_wire_promise": False,
+        "status": "public-experimental-not-approved-not-mandatory",
     }:
-        raise VerificationError("compact private-use status mismatch")
+        raise VerificationError("public experimental codec status mismatch")
     artifact_digest = hashlib.sha256(COMPACT_ARTIFACT_PATH.read_bytes()).hexdigest()
     if vector_pack["evidence_artifact"] != {
-        "path": "benchmarks/results/compact-codec-evidence-2026-09-01.json",
+        "path": "benchmarks/results/compact-codec-public-evidence-2026-09-02.json",
         "sha256": artifact_digest,
     }:
         raise VerificationError("compact vector artifact binding mismatch")
-    profile_path = ROOT / artifact["codec"]["profile"]
-    if hashlib.sha256(profile_path.read_bytes()).hexdigest() != artifact["codec"][
-        "profile_sha256"
-    ]:
-        raise VerificationError("compact profile digest mismatch")
+    if artifact["codec"]["normative_profile_sha256"] != COMPACT_PROFILE_SHA256:
+        raise VerificationError("normative compact profile digest mismatch")
     if vector_pack["codec"] != artifact["codec"]:
         raise VerificationError("compact vector profile mismatch")
     if vector_pack["vectors"] != artifact["boundary_vectors"]:
         raise VerificationError("compact vector/artifact cases differ")
+    if vector_pack["tuple_validation_vectors"] != artifact["tuple_validation_vectors"]:
+        raise VerificationError("public tuple vector/artifact cases differ")
     if vector_pack["maximum_witnesses"] != artifact["maximum_witnesses"]:
         raise VerificationError("compact vector/artifact witnesses differ")
 
@@ -326,9 +348,15 @@ def verify_compact_artifact() -> dict[str, Any]:
             raise VerificationError(f"prescribed V01 fixture mismatch: {name}")
     if fixture["messages"] != 100 or fixture["first_index"] != 0 or fixture["last_index"] != 99:
         raise VerificationError("prescribed V01 fixture range mismatch")
+    if fixture["collection_entry_semantics"] != (
+        "opaque-body-surrogate-not-canonical-manifest-representation"
+    ) or fixture["mandatory_vector_status"] != (
+        "blocked-no-normative-manifest-instance-encoding"
+    ):
+        raise VerificationError("prescribed V01 evidence scope overclaims manifest bytes")
 
     before = artifact["before_b1"]
-    after = artifact["after_compact_candidate"]
+    after = artifact["after_public_experimental_codec"]
     legacy_capabilities = bytes.fromhex(before["capabilities_hex"])
     legacy_summary = bytes.fromhex(before["summary_hex"])
     if len(legacy_capabilities) != before["capability_operation_octets"] or len(
@@ -365,19 +393,21 @@ def verify_compact_artifact() -> dict[str, Any]:
     verify_segments(after["warm_summary_segments"], len(warm_summary))
     verify_segments(after["cold_summary_segments"], len(cold_summary))
 
-    legacy_maxima = {
-        "CAPABILITIES": 34_362,
+    profile_legacy_maxima = {
+        "CAPABILITIES": 33_282,
         "SUMMARY": 33_080,
-        "OFFER": 186_789,
+        "OFFER": 55_717,
         "REQUEST": 39_186,
         "DATA": 1_048_576,
         "RECEIPT": 33_341,
         "FAILURE": 33_326,
     }
-    if {entry["kind"] for entry in artifact["maximum_witnesses"]} != set(legacy_maxima):
+    if {entry["kind"] for entry in artifact["maximum_witnesses"]} != set(
+        profile_legacy_maxima
+    ):
         raise VerificationError("maximum witness operation inventory mismatch")
     for witness in artifact["maximum_witnesses"]:
-        legacy_maximum = legacy_maxima[witness["kind"]]
+        legacy_maximum = profile_legacy_maxima[witness["kind"]]
         body = 1 + legacy_maximum - 7
         expected_maximum = 1 + len(encode_uvarint(body)) + body
         if witness["legacy_encoded_length"] != legacy_maximum:
@@ -422,6 +452,21 @@ def verify_compact_artifact() -> dict[str, Any]:
         else:
             raise VerificationError(f"compact invalid vector accepted: {vector['name']}")
 
+    tuple_vectors = artifact["tuple_validation_vectors"]
+    if len(tuple_vectors) != 9:
+        raise VerificationError("public tuple vector inventory mismatch")
+    for vector in tuple_vectors:
+        accepted = public_tuple_supported(vector)
+        if accepted != (vector["expected"] == "accept"):
+            raise VerificationError(f"public tuple decision mismatch: {vector['name']}")
+    if artifact["manifest_codec"] != {
+        "pretty_json_fixture_is_conforming_codec_bytes": False,
+        "public_revision_1_supports_schema": False,
+        "schema_fingerprint": "0ac001efba42837aade054401d9d307d16ad4715feac288fcb3d1711e4b961da",
+        "status": "blocked-no-normative-instance-encoding",
+    }:
+        raise VerificationError("manifest codec blocker mismatch")
+
     if artifact["numeric_precision_vectors"]["status"] != "not-applicable":
         raise VerificationError("numeric precision applicability mismatch")
     return {
@@ -432,6 +477,7 @@ def verify_compact_artifact() -> dict[str, Any]:
         "valid_vectors": valid_vectors,
         "invalid_vectors": invalid_vectors,
         "maximum_witnesses": len(artifact["maximum_witnesses"]),
+        "tuple_validation_vectors": len(tuple_vectors),
     }
 
 
@@ -547,19 +593,25 @@ def verify_tranche3(
         ).read_text("utf-8")
     )
 
-    expected_specification = "10fc1ddca0b16c974d29a24b6ff2bef189663a1f"
+    expected_specification = SPECIFICATION_COMMIT
     if evidence["specification_commit"] != expected_specification:
         raise VerificationError("tranche-3 specification commit mismatch")
     if evidence["conformance_claim"] is not False:
         raise VerificationError("tranche-3 evidence makes a conformance claim")
     if evidence["codec"]["current_id"] != COMPACT_CODEC_ID:
-        raise VerificationError("private codec ID changed")
+        raise VerificationError("public codec ID mismatch")
     if evidence["codec"]["current_revision"] != COMPACT_CODEC_REVISION:
-        raise VerificationError("private codec revision changed")
-    if evidence["codec"]["registry_allocation"] is not None:
-        raise VerificationError("private codec claims an allocation")
-    if not evidence["codec"]["generator_accepts_explicit_id_revision"]:
-        raise VerificationError("allocation-ready codec generation failed")
+        raise VerificationError("public codec revision mismatch")
+    if evidence["codec"]["registry_allocation"] != "experimental":
+        raise VerificationError("public codec allocation status mismatch")
+    if evidence["codec"]["status"] != "public-experimental-not-approved-not-mandatory":
+        raise VerificationError("public codec status mismatch")
+    if not evidence["codec"]["generator_accepts_exact_allocated_id_revision"]:
+        raise VerificationError("allocated public codec generation failed")
+    if evidence["codec"]["stable_wire_promise"] or evidence["codec"][
+        "production_security_promise"
+    ]:
+        raise VerificationError("experimental codec makes a stability or security promise")
 
     if oceanmail["source_commit"] != "cc55c1b7d5a03aa2e5cc8cd617f9d1bb7b6a3600":
         raise VerificationError("OceanMail evidence commit mismatch")
@@ -624,12 +676,17 @@ def verify_tranche3(
         encoded, expected_semantic = expected_values[fixture["selection_event"]]
         if int(fixture["semantic_octets"]) != expected_semantic:
             raise VerificationError("independent semantic value mismatch")
-        expected_id = representation_id_from_bytes(
-            fixture["schema_fingerprint"],
-            COMPACT_CODEC_ID,
-            COMPACT_CODEC_REVISION,
-            encoded,
-        )
+        if fixture["identity_derivation"] == "semantic-fixture-sha256-not-codec-representation":
+            expected_id = hashlib.sha256(encoded).hexdigest()
+        elif fixture["identity_derivation"] == "public-codec-representation-id":
+            expected_id = representation_id_from_bytes(
+                fixture["schema_fingerprint"],
+                COMPACT_CODEC_ID,
+                COMPACT_CODEC_REVISION,
+                encoded,
+            )
+        else:
+            raise VerificationError("unknown semantic fixture identity derivation")
         if fixture["representation_id"] != expected_id:
             raise VerificationError("semantic fixture representation ID mismatch")
         key = (fixture["direction"], fixture["representation_id"])
@@ -850,6 +907,21 @@ def verify_tranche3(
         "unknown-critical-extension"
     ]["rejected"]:
         raise VerificationError("V13 extension behavior mismatch")
+    if v13["compatible-tuple"]["codec_id"] != COMPACT_CODEC_ID:
+        raise VerificationError("V13 public tuple selection mismatch")
+    rejection_cases = {
+        "mismatched-schema",
+        "unknown-codec",
+        "private-use-codec",
+        "revision-zero-downgrade",
+        "unsupported-revision",
+        "mixed-private-public-peer",
+    }
+    if any(
+        v13[name]["failure"] != "UnsupportedCodec" or v13[name]["mutation"]
+        for name in rejection_cases
+    ):
+        raise VerificationError("V13 public tuple rejection mismatch")
     if len(vectors["V14"]["cases"]) != 12:
         raise VerificationError("V14 before/after inventory mismatch")
 
@@ -966,6 +1038,24 @@ def verify_tranche3(
 
 def verify() -> dict[str, Any]:
     manifest = strict_json(MANIFEST_PATH.read_text(encoding="utf-8"))
+    if manifest["specification_commit"] != SPECIFICATION_COMMIT:
+        raise VerificationError("bundle targets the wrong specification commit")
+    if manifest["codec"]["id"] != COMPACT_CODEC_ID or manifest["codec"][
+        "revision"
+    ] != COMPACT_CODEC_REVISION:
+        raise VerificationError("bundle public codec tuple mismatch")
+    if manifest["codec"]["status"] != "public-experimental-not-approved-not-mandatory":
+        raise VerificationError("bundle public codec status mismatch")
+    if any(
+        manifest["codec"][name]
+        for name in (
+            "approved",
+            "mandatory",
+            "stable_wire_promise",
+            "production_security_promise",
+        )
+    ):
+        raise VerificationError("bundle overclaims the experimental codec")
     expected_bundle_digest = manifest["bundle_digest"]
     digest_value = dict(manifest)
     digest_value["bundle_digest"] = None
@@ -1033,6 +1123,21 @@ def verify() -> dict[str, Any]:
             raise VerificationError(f"JCS invalid vector accepted: {vector['name']}")
 
     compact_result = verify_compact_artifact()
+    fuzz_report = strict_json(
+        (ROOT / "conformance" / "fuzz-report.json").read_text(encoding="utf-8")
+    )
+    if (
+        fuzz_report["specification_commit"] != SPECIFICATION_COMMIT
+        or fuzz_report["deterministic_seed"] != 4_775_307_987_118_129_153
+        or fuzz_report["seed_corpus_sha256"]
+        != "7e0e577ad3f43435963cce0e28da1761a207682b166efc4ed650510c7831656b"
+        or fuzz_report["random_cases"] != 50_000
+        or fuzz_report["exact_size_property_cases"] != 4_100
+        or fuzz_report["compact_exact_size_property_cases"] != 4_100
+        or fuzz_report["unresolved_findings"] != 0
+        or "public experimental compact codec" not in fuzz_report["methodology"]
+    ):
+        raise VerificationError("malformed/property report mismatch")
 
     return {
         "status": "pass",
@@ -1045,7 +1150,14 @@ def verify() -> dict[str, Any]:
         "mandatory_catalog_status": catalog["implementation_status"],
         "jcs_valid_vectors": len(jcs_vectors["valid"]),
         "jcs_invalid_vectors": len(jcs_vectors["invalid"]),
-        "compact_candidate": compact_result,
+        "public_experimental_codec": compact_result,
+        "malformed_property_cases": {
+            "random": fuzz_report["random_cases"],
+            "b1_structured": fuzz_report["structured_malformed_cases"],
+            "public_compact_structured": fuzz_report["compact_structured_malformed_cases"],
+            "exact_size_per_codec": fuzz_report["exact_size_property_cases"],
+            "unresolved_findings": fuzz_report["unresolved_findings"],
+        },
         "tranche3": tranche3_result,
     }
 
