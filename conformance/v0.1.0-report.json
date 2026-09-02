@@ -12,7 +12,7 @@
   "conformance_claim": false,
   "dependency_lock_sha256": "1575d0c14e771306cb951f1af8cec83cb51dbf526f3f53d13668159e1dd2b1a4",
   "implementation": {
-    "commit": "a94ecf83a312d5f2bce30b8c84a9581e170a4bec",
+    "commit": "bfd146f313f63d723c15b45deda1fe5736ae1372",
     "name": "bempic-reference",
     "version": "0.1.0-candidate"
   },
