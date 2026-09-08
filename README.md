@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Historical repository — superseded for active OceanMail development.**
+> This repository preserves the experimental BEMPIC reference implementation from the OceanMail 0.1 generation. It is not part of the active OceanMail 0.2 implementation path. Current work lives in the active repositories under the [OceanMail organization](https://github.com/OceanMail).
+
 # BEMPIC Reference v0.1.0 candidate — Frozen
 
 BEMPIC Reference is an experimental, deterministic application-synchronization implementation for severely constrained and intermittently connected carriers.
